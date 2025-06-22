@@ -1,0 +1,130 @@
+
+.register-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #f0f2f5;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+  padding-top: 30px;
+}
+
+.register-title {
+  font-size: 50px;
+  color: #1877f2;
+  font-weight: bold;
+  margin-bottom: 25px;
+}
+
+.register-form {
+  background: #fff;
+  padding: 2px 23px;
+  border-radius: 8px;
+  width: 430px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.register-form h2 {
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 1px;
+  color: #1c1e21;
+}
+
+.register-form p {
+  text-align: center;
+  font-size: 14px;
+  color: #606770;
+  margin-bottom: 16px;
+  margin-top: 7px;
+}
+
+.name-fields {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.name-fields input {
+  flex: 1;
+}
+
+.register-form input,
+.register-form select,
+.register-form textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 15px;
+  border: 1px solid #ccd0d5;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.register-form label {
+  font-size: 14px;
+  margin-bottom: 4px;
+  display: block;
+  color: #606770;
+}
+
+.dob-fields {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
+
+.register-form textarea {
+  resize: none;
+  height: 60px;
+}
+
+.register-form button {
+  width: 50%;
+  padding: 10px;
+  background-color: #1877f2;
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin: 5px auto 0;
+  display: block;
+}
+
+.register-form button:disabled {
+  background-color: #9ed7a7;
+  cursor: not-allowed;
+}
+
+.error-text {
+  color: red;
+  font-size: 14px;
+  text-align: center;
+  margin-top: -6px;
+}
+
+.login-link {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+.login-link a {
+  color: #1877f2;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
+
+.register-form hr {
+  border: none;
+  height: 1px;
+  background-color: #dadde1;
+  margin: 10px 0 20px;
+}

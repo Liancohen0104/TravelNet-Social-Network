@@ -1,0 +1,261 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px; 
+  background: #fff;
+  padding: 0 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.logo-image {
+  height: 190px;
+  width: 190px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.search-wrapper {
+  position: relative;
+}
+
+.search-input {
+  width: 180px;
+  padding: 8px 14px 8px 40px;
+  border: 1px solid #000;
+  border-radius: 25px;
+  font-size: 14px;
+  outline: none;
+  background: white;
+  color: #000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.4);
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9da6b0;
+  font-size: 16px;
+}
+
+.navbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 90px;
+}
+
+.nav-icon {
+  position: relative;
+  font-size: 25px;
+  color: #606770;
+  transition: color 0.15s;
+}
+
+.nav-icon:hover,
+.nav-icon.active {
+  color: #1877f2;
+}
+
+.nav-icon.active::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 3px;
+  background: #1877f2;
+  border-radius: 3px 3px 0 0;
+}
+
+.notification-dot {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  background: #f02849;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 11px;
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-right: 5px;
+}
+
+.profile-wrapper {
+  position: relative;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ccc;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.profile-pic:hover {
+  transform: scale(1.05);
+}
+
+.circle-btn,
+.dark-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f0f2f5;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  color: #333;
+  transition: background 0.15s;
+}
+
+.circle-btn:hover,
+.dark-mode-toggle:hover {
+  background: #e4e6e9;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  z-index: 999;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #eee;
+}
+
+.dropdown-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.dropdown-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #050505;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #333;
+  background: #fff;
+  border: none;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: #f5f6f7;
+}
+
+body.dark {
+  background: #18191a;
+  color: #e4e6eb;
+}
+
+body.dark .navbar {
+  background: #242526;
+  box-shadow: 0 2px 5px rgba(255, 255, 255, 0.05);
+}
+
+body.dark .search-input {
+  background: #3a3b3c;
+  color: #e4e6eb;
+  border: 1px solid #555;
+  box-shadow: 0 2px 6px rgba(255, 255, 255, 0.1);
+}
+
+body.dark .search-input:focus {
+  box-shadow: 0 0 0 2px rgba(66, 129, 245, 0.3);
+}
+
+body.dark .nav-icon {
+  color: #b0b3b8;
+}
+
+body.dark .nav-icon.active::after {
+  background: #2d88ff;
+}
+
+body.dark .circle-btn,
+body.dark .dark-mode-toggle {
+  background: #3a3b3c;
+  color: #e4e6eb;
+}
+
+body.dark .dropdown-menu {
+  background: #242526;
+  border-color: #3e4042;
+}
+
+body.dark .dropdown-item {
+  color: #e4e6eb;
+}
+
+body.dark .dropdown-item:hover {
+  background: #3a3b3c;
+}
+

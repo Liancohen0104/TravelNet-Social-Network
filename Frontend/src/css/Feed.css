@@ -1,0 +1,45 @@
+.post-list-box {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px 16px;
+  background: #e4e6eb;
+  min-height: 100vh;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 32px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.loading-spinner::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 12px;
+}
+
+.no-more-posts {
+  text-align: center;
+  padding: 24px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
