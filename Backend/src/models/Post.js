@@ -21,6 +21,8 @@ const postSchema = new Schema({
     }
   ],
 
+  commentsCount: {type: Number, default: 0 },
+
   sharedFrom: { type: Schema.Types.ObjectId, ref: 'Post', default: null }, // אם הפוסט הוא שיתוף אז זה הפוסט ששותף
   sharedToGroup: { type: Schema.Types.ObjectId, ref: 'Group', default: null } // קבוצה שאליה שותף הפוסט
 });

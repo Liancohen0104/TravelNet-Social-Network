@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  FaHome,
   FaUsers,
   FaBell,
-  FaMoon,
   FaFacebookMessenger,
+  FaHome
 } from "react-icons/fa";
 import { FiLogOut } from "react-icons/fi";
 import { MdAccountCircle } from "react-icons/md";
@@ -14,25 +13,22 @@ import "../css/Navbar.css";
 import "../css/Tooltip.css";
 import { useAuth } from "../contexts/AuthContext";
 
-export default function Navbar({ role, notificationsCount = 0 }) {
+export default function Navbar({ role, onOpenPanel, activePanel, unreadNotifications, unreadMessages }) {
   const { user } = useAuth();
-  const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem("darkMode") === "true";
-  });
 
-  useEffect(() => {
-    document.body.classList.toggle("dark", darkMode);
-    localStorage.setItem("darkMode", darkMode);
-  }, [darkMode]);
+  const isPanelActive = (panelName) => activePanel === panelName;
 
-  const toggleDarkMode = () => setDarkMode((prev) => !prev);
-  const isActive = (path) => location.pathname.startsWith(path);
+  const location = useLocation();
+  const isHome = location.pathname === "/";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     window.location.href = "/login";
+  };
+
+  const handleTogglePanel = (panelName) => {
+    onOpenPanel((prev) => (prev === panelName ? null : panelName));
   };
 
   return (
@@ -57,59 +53,68 @@ export default function Navbar({ role, notificationsCount = 0 }) {
 
       {role === "user" && (
         <nav className="navbar-center" role="navigation" aria-label="Main Nav">
+         {/* Home */}
           <div className="tooltip">
             <Link
-              to="/feed"
-              className={`nav-icon ${isActive("/feed") ? "active" : ""}`}
-              aria-label="Feed"
+              to="/"
+              className={`nav-icon ${isHome ? "active" : ""}`}
+              aria-label="Home"
             >
               <FaHome />
             </Link>
-            <span className="tooltiptext">Feed</span>
+            <span className="tooltiptext">Home</span>
           </div>
 
+          {/* Notifications */}
           <div className="tooltip">
-            <Link
-              to="/messenger"
-              className={`nav-icon ${isActive("/messenger") ? "active" : ""}`}
-              aria-label="Messenger"
-            >
-              <FaFacebookMessenger />
-            </Link>
-            <span className="tooltiptext">Messenger</span>
-          </div>
-
-          <div className="tooltip">
-            <Link
-              to="/groups"
-              className={`nav-icon ${isActive("/groups") ? "active" : ""}`}
-              aria-label="Groups"
-            >
-              <FaUsers />
-            </Link>
-            <span className="tooltiptext">Groups</span>
-          </div>
-
-          <div className="tooltip">
-            <Link
-              to="/notifications"
-              className={`nav-icon ${isActive("/notifications") ? "active" : ""}`}
+            <button
+              className={`nav-icon ${isPanelActive("notifications") ? "active" : ""}`}
+              onClick={() => handleTogglePanel("notifications")}
               aria-label="Notifications"
             >
               <FaBell />
-              {notificationsCount > 0 && (
-                <span className="notification-dot">{notificationsCount}</span>
+              {unreadNotifications > 0 && (
+                <span className="notification-dot">{unreadNotifications}</span>
               )}
-            </Link>
+            </button>
             <span className="tooltiptext">Notifications</span>
+          </div>
+
+          {/* Chat */}
+          <div className="tooltip">
+            <button
+              className={`nav-icon ${isPanelActive("chat") ? "active" : ""}`}
+              onClick={() => handleTogglePanel("chat")}
+              aria-label="Messenger"
+            >
+              <FaFacebookMessenger />
+              {unreadMessages > 0 && (
+                <span className="notification-dot">{unreadMessages}</span>
+              )}
+            </button>
+            <span className="tooltiptext">Messenger</span>
+          </div>
+
+
+          {/* Groups */}
+          <div className="tooltip">
+            <button
+              className={`nav-icon ${isPanelActive("groups") ? "active" : ""}`}
+              onClick={() => handleTogglePanel("groups")}
+              aria-label="Groups"
+            >
+              <FaUsers />
+            </button>
+            <span className="tooltiptext">Groups</span>
           </div>
         </nav>
       )}
 
+      {/* Profile */}
       <div className="navbar-right">
         <div className="tooltip profile-wrapper" onClick={() => setDropdownOpen(!dropdownOpen)}>
           <img
-            src={user?.imageURL}
+            src={user?.imageURL || "/default-avatar.png"}
             alt={`${user?.firstName} ${user?.lastName}`}
             className="profile-pic"
           />
@@ -118,7 +123,7 @@ export default function Navbar({ role, notificationsCount = 0 }) {
           {dropdownOpen && (
             <div className="dropdown-menu">
               <div className="dropdown-header">
-                <img src={user?.imageURL} alt="Avatar" className="dropdown-avatar" />
+                <img src={user?.imageURL || "/default-avatar.png"} alt="Avatar" className="dropdown-avatar" />
                 <span className="dropdown-name">
                   {user?.firstName} {user?.lastName}
                 </span>
@@ -133,17 +138,6 @@ export default function Navbar({ role, notificationsCount = 0 }) {
               </button>
             </div>
           )}
-        </div>
-
-        <div className="tooltip">
-          <button
-            className="circle-btn theme-toggle"
-            onClick={toggleDarkMode}
-            aria-label="Toggle dark mode"
-          >
-            <FaMoon />
-          </button>
-          <span className="tooltiptext">Dark Mode</span>
         </div>
       </div>
     </header>

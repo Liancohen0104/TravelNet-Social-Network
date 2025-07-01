@@ -1,9 +1,13 @@
 // פונקציות שירות
 
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const Post = require('../models/Post');
 const Notification = require("../models/Notification");
+const User = require("../models/User");
+const Post = require("../models/Post");
+const Conversation = require("../models/Conversation");
+const Chat = require("../models/Chat");
+const Group = require("../models/Group");
+
 const { sendPasswordResetEmail, sendWelcomeEmail  } = require('../services/email_service');
 const { getIO } = require("../sockets/socket");
 
@@ -86,6 +90,7 @@ exports.login = async (req, res) => {
     if (!ok) return res.status(401).json({ error: 'Wrong password' });
 
     user.lastLogin = new Date();
+    user.is_online = true;
     await user.save({ validateBeforeSave: false });
 
     const token = signToken(user);
@@ -290,15 +295,126 @@ exports.searchUsers = async (req, res) => {
   }
 };
 
-// מחיקת משתמש עצמי
+// חיפוש חברים שלי
+exports.searchMyFriends = async (req, res) => {
+  const { query } = req.query;
+  const userId = req.user.id;
+
+  try {
+    const me = await User.findById(userId).populate(
+      "friends",
+      "firstName lastName imageURL is_online lastLogin"
+    );
+    if (!me) return res.status(404).json({ error: "User not found" });
+
+    const filtered = me.friends.filter((friend) => {
+      const fullName = `${friend.firstName} ${friend.lastName}`.toLowerCase();
+      return fullName.includes((query || "").toLowerCase());
+    });
+
+    res.json(
+      filtered.map((f) => ({
+        id: f._id,
+        name: `${f.firstName} ${f.lastName}`,
+        imageURL: f.imageURL,
+        is_online: f.is_online,
+        lastLogin: f.lastLogin,
+      }))
+    );
+  } catch (err) {
+    console.error("Error in searchMyFriends:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// חיפוש קבוצות שלי
+exports.searchMyGroups = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { query } = req.query;
+
+    const groups = await Group.find({
+      $and: [
+        { name: { $regex: query, $options: "i" } },
+        {
+          $or: [
+            { creator: userId },
+            { members: userId }
+          ]
+        }
+      ]
+    }).select("name imageURL creator");
+
+    res.json(groups);
+  } catch (err) {
+    console.error("Failed to search my groups:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// מחיקת המשתמש שלי
 exports.deleteMyAccount = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // 1. מחיקת כל ההודעות ששלח
+    await Chat.deleteMany({ sender: userId });
+
+    // 2. מחיקת כל השיחות שבהן הוא משתתף
+    await Conversation.deleteMany({ participants: userId });
+
+    // 3. מחיקת כל ההתראות ששלח או קיבל
+    await Notification.deleteMany({
+      $or: [{ recipient: userId }, { sender: userId }]
+    });
+
+    // 4. מחיקת כל הפוסטים של המשתמש
+    const userPosts = await Post.find({ author: userId }).select("_id");
+    const userPostIds = userPosts.map((p) => p._id);
+
+    await Post.deleteMany({ author: userId });
+
+    // 5. מחיקת כל התגובות של המשתמש
+    await Post.updateMany(
+      { "comments.user": userId },
+      { $pull: { comments: { user: userId } } }
+    );
+
+    // 6. הסרת המשתמש מכל רשימות:
+    await User.updateMany(
+      {},
+      {
+        $pull: {
+          friends: userId,
+          friendRequestsSent: userId,
+          friendRequestsReceived: userId,
+          savedPosts: { $in: userPostIds }
+        }
+      }
+    );
+
+    // 7. מחיקת המשתמש עצמו
     await User.findByIdAndDelete(userId);
 
-    res.json({ message: 'Your account has been deleted successfully' });
+    // 8. מחיקת קבוצות שהוא יצר
+    await Group.deleteMany({ creator: userId });
+
+    // 9. הסרתו מקבוצות אחרות
+    await Group.updateMany(
+      {},
+      {
+        $pull: {
+          members: userId,
+          pendingMembers: userId,
+          invitedUsers: userId
+        }
+      }
+    );
+
+    res.json({ message: "Your account has been deleted successfully" });
+
   } catch (err) {
+    console.error("Failed to delete account:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -348,23 +464,27 @@ exports.getPersonalFeed = async (req, res) => {
   }
 };
 
-// שליפת כל הפוסטים של המשתמש
+// שליפת כל הפוסטים של משתמש
 exports.getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // שליפה עי אדמין או יוצר הפוסטים
-    if (req.user.role !== 'admin' && req.user.id !== userId) {
-      return res.status(403).json({ error: 'Unauthorized – not allowed to access other users\' posts' });
-    }
-
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
 
-    const posts = await Post.find({ author: userId })
+    const isOwner = req.user.id === userId;
+
+    // תנאי חיפוש: אם הבעלים – כל הפוסטים, אם לא – רק ציבוריים
+    const query = { author: userId };
+    if (!isOwner) {
+      query.isPublic = true;
+    }
+
+    const posts = await Post.find(query)
       .populate('author', 'firstName lastName imageURL')
       .populate('sharedFrom', 'content imageUrl author')
       .populate('sharedFrom.author', 'firstName lastName imageURL')
+      .populate('comments.user', 'firstName lastName imageURL')
       .populate('group', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -417,6 +537,7 @@ exports.getSavedPosts = async (req, res) => {
 
     const posts = await Post.find({ _id: { $in: user.savedPosts } })
       .populate('author', 'firstName lastName imageURL')
+      .populate('comments.user', 'firstName lastName imageURL')
       .populate('group', 'name')
       .populate({
         path: 'sharedFrom',
@@ -445,7 +566,10 @@ exports.sendFriendRequest = async (req, res) => {
 
   if (!receiver) return res.status(404).json({ error: 'User not found' });
 
-  if (sender.friendRequestsSent.includes(receiverId) || receiver.friendRequestsReceived.includes(senderId)) {
+  if (
+    sender.friendRequestsSent.includes(receiverId) ||
+    receiver.friendRequestsReceived.includes(senderId)
+  ) {
     return res.status(400).json({ error: 'Request already sent' });
   }
 
@@ -461,16 +585,27 @@ exports.sendFriendRequest = async (req, res) => {
     type: "friend_request",
     message: `${sender.fullName} sent you a friend request`,
     link: `/users/${sender._id}`,
-    image: sender.imageURL
+    image: sender.imageURL,
+    isRead: false,
+  });
+
+  // עדכון כמות ההתראות שלא נקראו של המשתמש
+  await User.findByIdAndUpdate(receiver._id, {
+    $inc: { unreadNotificationsCount: 1 }
   });
 
   const io = getIO();
+
+  // שולח את ההתראה הרגילה
   io.to(receiver._id.toString()).emit("receive-notification", notification);
 
-  res.json({ message: 'Friend request sent' });
+  // שולח גם אירוע חדש של בקשת חברות כדי לעדכן את הקומפוננטה
+  io.to(receiver._id.toString()).emit("new-friend-request");
+
+  res.json({ message: "Friend request sent" });
 };
 
-// קבלת בקשות חברות 
+// קבלת בקשת חברות 
 exports.acceptFriendRequest = async (req, res) => {
   const userId = req.user.id;
   const senderId = req.params.id;
@@ -484,19 +619,25 @@ exports.acceptFriendRequest = async (req, res) => {
     return res.status(400).json({ error: 'No request found' });
   }
 
+  // עדכון חברים
   user.friends.push(senderId);
   sender.friends.push(userId);
 
+  // הסרת בקשות
   user.friendRequestsReceived = user.friendRequestsReceived.filter(id => id.toString() !== senderId);
   sender.friendRequestsSent = sender.friendRequestsSent.filter(id => id.toString() !== userId);
 
   await user.save();
   await sender.save();
 
+  const io = getIO();
+  io.to(userId.toString()).emit("friend-request-accepted");
+  io.to(senderId.toString()).emit("friend-request-accepted");
+
   res.json({ message: 'Friend request accepted' });
 };
 
-// דחיית בקשת חברות
+// מחיקת בקשת חברות
 exports.declineFriendRequest = async (req, res) => {
   const userId = req.user.id;
   const senderId = req.params.id;
@@ -511,6 +652,9 @@ exports.declineFriendRequest = async (req, res) => {
 
   await user.save();
   await sender.save();
+
+  const io = getIO();
+  io.to(senderId.toString()).emit("friend-request-declined"); 
 
   res.json({ message: 'Friend request declined' });
 };
@@ -560,8 +704,10 @@ exports.getMyGroups = async (req, res) => {
 
     const user = await User.findById(req.user.id).populate({
       path: 'groups',
+      select: 'name imageURL',
       options: { skip, limit }
     });
+
     res.json(user.groups);
   } catch (err) {
     console.error('Get my groups error:', err);
@@ -588,28 +734,131 @@ exports.didUserLikePost = async (req, res) => {
   }
 };
 
-// מחזיר רשימת החברים של המשתמש המחובר
+// מחזיר רשימת החברים של המשתמש המחובר (ממוינת: מחוברים בראש)
 exports.getMyFriends = async (req, res) => {
   try {
     const currentUserId = req.user.id;
 
     const user = await User.findById(currentUserId)
-      .populate("friends", "firstName lastName imageURL")
+      .populate("friends", "firstName lastName imageURL is_online lastLogin")
       .lean();
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const friends = user.friends.map((friend) => ({
-      id: friend._id,
-      name: `${friend.firstName} ${friend.lastName}`,
-      imageURL: friend.imageURL,
-    }));
+    const friends = user.friends
+      .map((friend) => ({
+        id: friend._id,
+        name: `${friend.firstName} ${friend.lastName}`,
+        imageURL: friend.imageURL,
+        is_online: friend.is_online ?? false,
+        lastLogin: friend.lastLogin
+      }))
+      .sort((a, b) => {
+        // מחוברים בראש
+        if (a.is_online && !b.is_online) return -1;
+        if (!a.is_online && b.is_online) return 1;
+        return 0; // אין שינוי אם שניהם באותו סטטוס
+      });
 
     res.json(friends);
   } catch (err) {
     console.error("Error fetching friends:", err);
     res.status(500).json({ error: "Failed to fetch friends" });
   }
+};
+
+// שליפת כל הבקשות הממתינות לקבוצות שנוצרו ע"י המשתמש
+exports.getMyGroupsPendingRequests = async (req, res) => {
+  try {
+    const myGroups = await Group.find({ creator: req.user.id })
+      .populate({
+        path: "pendingRequests",
+        select: "firstName lastName imageURL",
+      });
+
+    const results = myGroups
+      .filter(group => group.pendingRequests.length > 0)
+      .flatMap(group =>
+        group.pendingRequests.map(user => ({
+          groupId: group._id,
+          groupName: group.name,
+          userId: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          imageURL: user.imageURL
+        }))
+      );
+
+    res.json(results);
+  } catch (err) {
+    console.error("Failed to get pending requests:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// קבלת כמות ההודעות שלא נקראו
+exports.getUnreadMessages = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // חישוב כמה הודעות התקבלו ע"י המשתמש ועדיין לא נקראו
+    const unreadCount = await Chat.countDocuments({
+      recipient: userId,
+      isRead: false
+    });
+
+    res.json({ unreadMessages: unreadCount });
+  } catch (err) {
+    console.error("Failed to get unread messages count", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// קבלת משתמש לפי מזהה
+exports.getUserById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findById(userId).select(
+      "-password -resetPasswordToken -resetPasswordExpires"
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("Error fetching user by ID:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// קבלת סטטוס חברות - לא חבר, מחכה לאישור, חבר
+exports.getFriendStatus = async (req, res) => {
+  const currentUserId = req.user.id;
+  const otherUserId = req.params.id;
+
+  if (currentUserId === otherUserId) {
+    return res.json({ status: "self" });
+  }
+
+  const currentUser = await User.findById(currentUserId);
+  const otherUser = await User.findById(otherUserId);
+
+  if (!currentUser || !otherUser) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (currentUser.friends.includes(otherUserId)) {
+    return res.json({ status: "friends" });
+  }
+
+  if (currentUser.friendRequestsSent.includes(otherUserId)) {
+    return res.json({ status: "pending" });
+  }
+
+  return res.json({ status: "none" });
 };

@@ -41,6 +41,14 @@ const notificationApi = {
       method: "DELETE",
       headers: getAuthHeaders(),
     }),
+
+  // מחיקת כל ההתראות
+  deleteAllNotifications: () =>
+    $.ajax({
+      url: `${BASE_URL}/notifications/delete-all-notifications`,
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    }),
 };
 
 export default notificationApi;

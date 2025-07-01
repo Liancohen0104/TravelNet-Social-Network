@@ -10,5 +10,6 @@ router.get("/unread-notification",          verifyToken, notificationController.
 router.patch("/:id/read",                   verifyToken, notificationController.markAsRead);
 router.patch("/read-all",                   verifyToken, notificationController.markAllAsRead);
 router.delete("/:id/delete-notification",   verifyToken, notificationController.deleteNotification);
+router.delete('/delete-all-notifications', verifyToken, notificationController.deleteAllNotifications);
 
 module.exports = router;

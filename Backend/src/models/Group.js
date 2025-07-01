@@ -11,7 +11,10 @@ const groupSchema = new Schema(
     description: { type: String },
 
     // תמונה של הקבוצה
-    imageURL: { type: String },
+    imageURL: {
+      type: String,
+      default: "https://res.cloudinary.com/druxrfbst/image/upload/v1750453874/default_profile_eqtr4y.jpg"
+    },
 
     // יוצר הקבוצה
     creator: { type: Schema.Types.ObjectId, ref: 'User', required: true },

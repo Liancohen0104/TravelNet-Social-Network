@@ -17,6 +17,7 @@ exports.sendMessage = async (req, res) => {
   try {
     const senderId = req.user.id;
     const { recipientId, text } = req.body;
+    const isRead = req.body.isRead === "true";
 
     let attachment = null;
     if (req.file && req.file.path) {
@@ -46,25 +47,21 @@ exports.sendMessage = async (req, res) => {
       text,
       attachment,
       createdAt: new Date(),
+      isRead
     });
+
+    // עדכון כמות הודעות אצל המקבל
+    if (!isRead) {
+      await User.findByIdAndUpdate(recipientId, {
+        $inc: { unreadMessagesCount: 1 },
+      });
+    }
 
     // עדכון שיחה
     conversation.lastMessage = message._id;
     conversation.updatedAt = new Date();
     await conversation.save();
-
-    const senderUser = await User.findById(senderId);
     
-    // יצירת התראה
-    await Notification.create({
-      recipient: recipientId,
-      sender: senderId,
-      type: "message",
-      message: `You get a new message from ${senderUser.fullName}`,
-      link: `/chat/${senderId}`,
-      imageURL: senderUser.imageURL
-    });
-
     // שליחה בזמן אמת
     const io = getIO();
     io.to(recipientId).emit("receive-message", message);

@@ -68,6 +68,24 @@ const usersApi = {
       data: params,
     }),
 
+  // חיפוש חברים שלי
+  searchMyFriends: (query) =>
+    $.ajax({
+      url: `${BASE_URL}/users/search-my-friends`,
+      method: "GET",
+      headers: getAuthHeaders(),
+      data: { query }
+    }),
+
+  // חיפוש קבוצות שלי
+  searchMyGroups: (query) =>
+    $.ajax({
+      url: `${BASE_URL}/users/search-my-groups`,
+      method: "GET",
+      headers: getAuthHeaders(),
+      data: { query }
+    }),
+
   // מחיקת המשתמש המחובר
   deleteMyAccount: () =>
     $.ajax({
@@ -168,6 +186,38 @@ const usersApi = {
   getMyFriends: () =>
   $.ajax({
     url: `${BASE_URL}/users/my-friends`,
+    method: "GET",
+    headers: getAuthHeaders(),
+  }),
+
+  // שליפת כל הבקשות הממתינות לקבוצות שיצר המשתמש
+  getMyGroupsPendingRequests: () =>
+  $.ajax({
+    url: `${BASE_URL}/users/my-groups-pending-requests`,
+    method: "GET",
+    headers: getAuthHeaders(),
+  }),
+
+  // קבלת כמות הודעות שלא נקראו
+  getUnreadMessagesCount: () =>
+    $.ajax({
+      url: `${BASE_URL}/users/unread-messages-count`,
+      method: "GET",
+      headers: getAuthHeaders()
+    }),
+
+  // קבלת משתמש לפי מזהה
+  getUserById: (userId) =>
+  $.ajax({
+    url: `${BASE_URL}/users/${userId}`,
+    method: "GET",
+    headers: getAuthHeaders(),
+  }),
+
+  // קבלת סטטוס חברות - לא חבר, מחכה לאישור, חבר
+  getFriendStatus: (userId) =>
+  $.ajax({
+    url: `${BASE_URL}/users/${userId}/friend-status`,
     method: "GET",
     headers: getAuthHeaders(),
   }),

@@ -332,9 +332,22 @@
 .modal-content {
   display: flex;
   flex-direction: column;
-  height: calc(80vh - 64px); 
+  height: calc(80vh - 64px);
   padding: 0;
-  overflow: hidden;
+  overflow-y: auto;
+}
+
+.modal-content::-webkit-scrollbar {
+  width: 2px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background-color: #bbb;
+  border-radius: 8px;
 }
 
 .comments-list {
@@ -378,10 +391,19 @@
 .comment-body {
   flex: 1;
   background: #f8fafc;
-  padding: 12px 16px;
   border-radius: 8px;
   position: relative;
   border: 1px solid #e2e8f0;
+  padding: 12px 16px 24px 16px;
+}
+
+.post-text,
+.comment-text,
+.comment-author,
+.modal-header h3 {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .comment-author {
@@ -396,7 +418,7 @@
 
 .comment-time {
   position: absolute;
-  bottom: 8px;
+  bottom: 1px;
   right: 12px;
   font-size: 12px;
   color: #64748b;
@@ -408,6 +430,7 @@
   color: #475569;
   line-height: 1.5;
   white-space: pre-wrap;
+  max-width: 100%;
 }
 
 .delete-comment-btn {
@@ -471,7 +494,6 @@
   cursor: pointer;
   font-weight: 500;
   font-size: 14px;
-  margin-top: 10px;
 }
 
 .submit-comment-btn:hover {
@@ -822,3 +844,14 @@
 .post-text {
   margin-bottom: 12px;
 }
+
+.no-more-comments {
+  text-align: center;
+  padding: 24px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
+}
+

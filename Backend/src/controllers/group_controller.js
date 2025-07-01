@@ -11,6 +11,7 @@ exports.createGroup = async (req, res) => {
   try {
     const { name, description, isPublic } = req.body;
 
+    let imageURL;
     if (req.file && req.file.path) {
       imageURL = req.file.path; 
     }
@@ -40,7 +41,8 @@ exports.updateGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
     const { name, description, isPublic } = req.body;
-
+    let imageURL;
+    
     const group = await Group.findById(groupId);
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
@@ -78,6 +80,12 @@ exports.deleteGroup = async (req, res) => {
     if (group.creator.toString() !== req.user.id)
       return res.status(403).json({ error: 'Only the creator can delete the group' });
 
+    // הסרת הקבוצה מכל המשתמשים
+    await User.updateMany(
+      { groups: group._id },
+      { $pull: { groups: group._id } }
+    );
+
     await group.deleteOne();
     res.json({ message: 'Group deleted' });
   } catch (err) {
@@ -110,14 +118,24 @@ exports.requestToJoinGroup = async (req, res) => {
       type: "group_request",
       message: `${sender.fullName} has requested to join your group "${group.name}"`,
       link: `/groups/${group._id}`,
-      image: sender.imageURL
+      image: sender.imageURL,
+      isRead: false,
+    });
+
+    // עדכון כמות ההתראות שלא נקראו של המשתמש
+    await User.findByIdAndUpdate(groupCreator._id, {
+      $inc: { unreadNotificationsCount: 1 }
     });
 
     const io = getIO();
+
     io.to(groupCreator._id.toString()).emit("receive-notification", notification);
+
+    io.to(groupCreator._id.toString()).emit("new-group-request");
 
     res.json({ message: 'Join request sent' });
   } catch (err) {
+    console.error("Error in requestToJoinGroup:", err);
     res.status(500).json({ error: 'Failed to request join' });
   }
 };
@@ -130,7 +148,9 @@ exports.approveJoinRequest = async (req, res) => {
     if (!group) return res.status(404).json({ error: 'Group not found' });
     if (group.creator.toString() !== req.user.id) return res.status(403).json({ error: 'Only creator can approve' });
 
-    if (!group.pendingRequests.includes(userId)) return res.status(400).json({ error: 'User did not request to join' });
+    if (!group.pendingRequests.includes(userId)) {
+      return res.status(400).json({ error: 'User did not request to join' });
+    }
 
     group.pendingRequests = group.pendingRequests.filter(id => id.toString() !== userId);
     group.members.push(userId);
@@ -149,11 +169,19 @@ exports.approveJoinRequest = async (req, res) => {
       type: "approved_request",
       message: `You have been approved to join the group "${group.name}"`,
       link: `/groups/${group._id}`,
-      image: group.imageURL
+      image: group.imageURL,
+      isRead: false,
+    });
+
+    await User.findByIdAndUpdate(approvedUser._id, {
+      $inc: { unreadNotificationsCount: 1 }
     });
 
     const io = getIO();
     io.to(approvedUser._id.toString()).emit("receive-notification", notification);
+
+    // שידור שאושרה בקשת ההצטרפות
+    io.to(userId).emit("group-request-approved", { groupId, userId });
 
     res.json({ message: 'User approved and added to group' });
   } catch (err) {
@@ -171,6 +199,9 @@ exports.rejectJoinRequest = async (req, res) => {
 
     group.pendingRequests = group.pendingRequests.filter(id => id.toString() !== userId);
     await group.save();
+
+    const io = getIO();
+    io.to(userId).emit("group-request-declined", { groupId, userId });
 
     res.json({ message: 'Join request rejected' });
   } catch (err) {
@@ -225,23 +256,6 @@ exports.leaveGroup = async (req, res) => {
     res.json({ message: 'Left group successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to leave group' });
-  }
-};
-
-// צפייה בכל הבקשות הממתינות לקבוצה (רק ליוצר)
-exports.getPendingRequests = async (req, res) => {
-  try {
-    const { groupId } = req.params;
-
-    const group = await Group.findById(groupId).populate('pendingRequests', 'firstName lastName email imageURL');
-    if (!group) return res.status(404).json({ error: 'Group not found' });
-
-    if (group.creator.toString() !== req.user.id)
-      return res.status(403).json({ error: 'Only the group creator can view pending requests' });
-
-    res.json(group.pendingRequests);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch pending requests' });
   }
 };
 

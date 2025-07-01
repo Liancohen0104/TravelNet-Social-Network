@@ -3,8 +3,8 @@
 const Post = require('../models/Post');
 const User = require('../models/User');
 const Group = require('../models/Group');
-const { getIO } = require("../sockets/socket");
 const Notification = require("../models/Notification");
+const { getIO } = require("../sockets/socket");
 
 // קבלת פוסט לפי מזהה
 exports.getPostById = async (req, res) => {
@@ -56,7 +56,7 @@ exports.createPost = async (req, res) => {
     if (groupObj) {
       const author = await User.findById(req.user.id);
       const membersToNotify = groupObj.members.filter(id => id.toString() !== req.user.id);
-      const preview = newPost.content.length > 100 ? newPost.content.slice(0, 100) + "..." : newPost.content;
+      const preview = newPost.content.length > 80 ? newPost.content.slice(0, 100) + "..." : newPost.content;
 
       for (const memberId of membersToNotify) {
         const notification = await Notification.create({
@@ -65,7 +65,13 @@ exports.createPost = async (req, res) => {
           type: "group_post",
           message: `${author.fullName} posted in the group "${groupObj.name}": ${preview}`,
           link: `/groups/${groupObj._id}/posts`,
-          imageURL: author.imageURL
+          imageURL: author.imageURL,
+          isRead: false,
+        });
+
+        // עדכון כמות ההתראות שלא נקראו של המשתמש
+        await User.findByIdAndUpdate(memberId, {
+          $inc: { unreadNotificationsCount: 1 }
         });
 
         const io = getIO();
@@ -185,7 +191,7 @@ exports.getShareLink = async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    const shareLink = `http://localhost:3000/posts/share/${post._id}`; // קישור לפרונט
+    const shareLink = `http://localhost:3000/view-shared-post/${post._id}`; // קישור לפרונט
     res.json({ shareLink });
 
   } catch (err) {
@@ -198,36 +204,38 @@ exports.getShareLink = async (req, res) => {
 exports.getSharedPost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate('author', 'firstName lastName _id')
+      .populate('author', 'firstName lastName _id imageURL')
       .populate('comments.user', 'firstName lastName imageURL')
       .populate('comments.mentionedUsers', 'firstName lastName imageURL')
-      .populate('group'); // כדי לבדוק אם המשתמש חבר בקבוצה
+      .populate('group', 'name imageURL isPublic');
 
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // אם הפוסט ציבורי – כולם יכולים לראות
-    if (post.isPublic) {
+    // אם הפוסט פרטי – רק היוצר יכול לראות
+    if (!post.isPublic) {
+      if (!req.user || !post.author._id.equals(req.user.id)) {
+        return res.status(403).json({ error: 'Only the author can view this private post' });
+      }
       return res.json(post);
     }
 
-    // אם אין משתמש מחובר – חסימה
-    if (!req.user) {
-      return res.status(401).json({ error: 'Login required to view this post' });
+    // אם הפוסט ציבורי - אם שייך לקבוצה פרטית רק חברי הקבוצה יוכלו לראות 
+    if (post.group && post.group.isPublic === false) {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Login required to view this group post' });
+      }
+
+      const viewer = await User.findById(req.user.id);
+      const isInGroup = viewer.groups.includes(post.group._id);
+
+      if (!isInGroup) {
+        return res.status(403).json({ error: 'You are not a member of this private group' });
+      }
     }
 
-    const viewer = await User.findById(req.user.id);
-
-    const isAuthor = post.author._id.equals(viewer._id);
-    const isFriend = viewer.friends.includes(post.author._id);
-    const isInGroup = post.group && viewer.groups.includes(post.group._id);
-
-    if (isAuthor || isFriend || isInGroup) {
-      return res.json(post);
-    }
-
-    return res.status(403).json({ error: 'You do not have permission to view this post' });
+    return res.json(post);
 
   } catch (err) {
     console.error('Error fetching shared post:', err);
@@ -278,33 +286,87 @@ exports.makePostPrivate = async (req, res) => {
 // הוספה או הסרת לייק
 exports.toggleLike = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findById(req.params.id).populate("author");
 
-    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (!post) return res.status(404).json({ error: "Post not found" });
 
     const userId = req.user.id;
-
     const alreadyLiked = post.likes.includes(userId);
 
     if (alreadyLiked) {
       // הסרת לייק
-      post.likes = post.likes.filter(id => id.toString() !== userId);
+      post.likes = post.likes.filter((id) => id.toString() !== userId);
     } else {
       // הוספת לייק
       post.likes.push(userId);
+
+      // שליחת התראה לבעל הפוסט (אם לא הוא עצמו שם לייק לעצמו)
+      if (post.author._id.toString() !== userId) {
+        const senderUser = await User.findById(userId);
+
+        const notification = await Notification.create({
+          recipient: post.author._id,
+          sender: senderUser._id,
+          type: "like",
+          message: `${senderUser.firstName} ${senderUser.lastName} liked your post`,
+          link: `/posts/${post._id}`,
+          image: senderUser.imageURL,
+          isRead: false,
+        });
+
+        // עדכון כמות ההתראות שלא נקראו של המשתמש
+        await User.findByIdAndUpdate(post.author._id, {
+          $inc: { unreadNotificationsCount: 1 }
+        });
+
+        // שליחה בזמן אמת
+        const io = getIO();
+        io.to(post.author._id.toString()).emit("receive-notification", notification);
+      }
     }
 
     await post.save();
 
     res.json({
-      message: alreadyLiked ? 'Like removed' : 'Post liked',
+      message: alreadyLiked ? "Like removed" : "Post liked",
       likesCount: post.likes.length,
       likedByMe: !alreadyLiked,
     });
 
   } catch (err) {
-    console.error('Error toggling like:', err);
-    res.status(500).json({ error: 'Failed to toggle like' });
+    console.error("Error toggling like:", err);
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
+};
+
+// שליפת כל התגובות לפוסט
+exports.getComments = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10;
+    const skip = (page - 1) * limit;
+
+    const post = await Post.findById(postId)
+      .populate('comments.user', 'firstName lastName imageURL')
+      .populate('comments.mentionedUsers', 'firstName lastName imageURL')
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const totalComments = post.commentCount || post.comments.length;
+    const paginatedComments = post.comments
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(skip, skip + limit);
+
+    res.json({
+      comments: paginatedComments,
+      hasMore: skip + limit < totalComments
+    });
+  } catch (err) {
+    console.error("Error fetching comments:", err);
+    res.status(500).json({ error: 'Failed to fetch comments' });
   }
 };
 
@@ -318,8 +380,6 @@ exports.addComment = async (req, res) => {
 
     // זיהוי תיוגים מהטקסט
     const taggedUsernames = (text.match(/@(\w+)/g) || []).map(tag => tag.slice(1));
-
-    // חיפוש המשתמשים המתויגים לפי שם משתמש
     const mentionedUsers = await User.find({ firstName: { $in: taggedUsernames } });
 
     const comment = {
@@ -330,30 +390,32 @@ exports.addComment = async (req, res) => {
     };
 
     post.comments.push(comment);
+    post.commentsCount = (post.commentsCount) + 1;
     await post.save();
 
     const populated = await Post.findById(post._id)
-      .populate({
-          path: 'comments.user',
-          select: 'firstName lastName imageURL'
-        })
-        .populate({
-          path: 'comments.mentionedUsers',
-          select: 'firstName lastName imageURL'
-        });
+      .populate('comments.user', 'firstName lastName imageURL')
+      .populate('comments.mentionedUsers', 'firstName lastName imageURL')
 
     const postAuthor = await User.findById(post.author);
     const commenter = await User.findById(req.user.id);
-    const preview = text.length > 100 ? text.slice(0, 100) + "..." : text;
+    const preview = text.length > 80 ? text.slice(0, 100) + '...': text;
 
+    // התראה לבעל הפוסט
     if (postAuthor._id.toString() !== commenter._id.toString()) {
       const notification = await Notification.create({
         recipient: postAuthor._id,
         sender: commenter._id,
         type: "comment",
-        message:`${commenter.firstName} commented on your post: ${preview}`,
+        message: `${commenter.firstName} commented on your post: ${preview}`,
         link: `/posts/${post._id}`,
-        image: commenter.imageURL
+        image: commenter.imageURL,
+        isRead: false,
+      });
+
+      // עדכון כמות ההתראות שלא נקראו של המשתמש
+      await User.findByIdAndUpdate(postAuthor._id, {
+        $inc: { unreadNotificationsCount: 1 }
       });
 
       const io = getIO();
@@ -372,20 +434,17 @@ exports.deleteComment = async (req, res) => {
   try {
     const { postId, commentId } = req.params;
     const post = await Post.findById(postId);
-
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
-    // מוצא את התגובה
     const comment = post.comments.id(commentId);
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
-    // בודק הרשאה – רק יוצר התגובה יכול למחוק
     if (comment.user.toString() !== req.user.id) {
       return res.status(403).json({ error: 'You are not allowed to delete this comment' });
     }
 
-    // מסיר את התגובה מהמערך
     post.comments = post.comments.filter(c => c._id.toString() !== commentId);
+    post.commentsCount = Math.max((post.commentsCount || 1) - 1, 0); 
 
     await post.save();
     res.json({ message: 'Comment deleted successfully' });
@@ -428,7 +487,7 @@ exports.sharePostToFeed = async (req, res) => {
 
     const originalAuthor = await User.findById(originalPost.author);
     const sharingUser = await User.findById(req.user.id);
-    const preview = newPost.content.length > 100 ? newPost.content.slice(0, 100) + "..." : newPost.content;
+    const preview = newPost.content.length > 80 ? newPost.content.slice(0, 100) + "..." : newPost.content;
 
     if (originalAuthor._id.toString() !== sharingUser._id.toString()) {
       const notification = await Notification.create({
@@ -437,7 +496,13 @@ exports.sharePostToFeed = async (req, res) => {
         type: "share",
         message: `${sharingUser.fullName} shared your post: ${preview}`,
         link: `/posts/${originalPost._id}`,
-        image: sharingUser.imageURL
+        image: sharingUser.imageURL,
+        isRead: false,
+      });
+      
+      // עדכון כמות ההתראות שלא נקראו של המשתמש
+      await User.findByIdAndUpdate(originalAuthor._id, {
+        $inc: { unreadNotificationsCount: 1 }
       });
 
       const io = getIO();

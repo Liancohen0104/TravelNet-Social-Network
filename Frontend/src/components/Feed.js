@@ -1,29 +1,49 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import usersApi from "../services/usersApi";
+import groupApi from "../services/groupApi";
 import PostCard from "./PostCard";
 import CreatePostBox from "./CreatePostBox";
 import "../css/Feed.css";
 
-export default function Feed() {
+export default function Feed({ userId = null, groupId = null, canCreatePost = true }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const observer = useRef(null);
+  const [error, setError] = useState("");
+
+  const handleError = (err) => {
+    if (err.responseJSON?.error) {
+      setError(err.responseJSON.error);
+    } else if (err.response?.data?.error) {
+      setError(err.response.data.error);
+    } else if (err.message) {
+      setError(err.message);
+    } else {
+      setError("Something went wrong");
+    }
+  };
 
   const loadPosts = async (pageToLoad = page + 1) => {
     if (loading || !hasMore) return;
     setLoading(true);
 
     try {
-      const res = await usersApi.getPersonalFeed(pageToLoad, 5);
-      if (res.length < 5) {
-        setHasMore(false);
-      }
+      let res;
+      if (groupId) {
+        res = await groupApi.getGroupPosts(groupId, (pageToLoad - 1) * 5, 5);
+    } else if (userId) {
+        res = await usersApi.getUserPosts(userId, (pageToLoad - 1) * 5, 5);
+    } else {
+        res = await usersApi.getPersonalFeed(pageToLoad, 5);
+    }
+
+      if (res.length < 5) setHasMore(false);
       setPosts((prev) => [...prev, ...res]);
       setPage((prev) => prev + 1);
     } catch (err) {
-      console.error("Error loading feed:", err);
+      handleError(err);
     } finally {
       setLoading(false);
     }
@@ -37,12 +57,20 @@ export default function Feed() {
     setHasMore(true);
 
     try {
-      const res = await usersApi.getPersonalFeed(1, 5);
+      let res;
+      if (groupId) {
+        res = await groupApi.getGroupPosts(groupId,0 , 5);
+    } else if (userId) {
+        res = await usersApi.getUserPosts(userId, 0 , 5);
+    } else {
+        res = await usersApi.getPersonalFeed(1, 5);
+    }
+
       setPosts(res);
       setPage(1);
       if (res.length < 5) setHasMore(false);
     } catch (err) {
-      console.error("Error reloading feed:", err);
+      handleError(err);
     } finally {
       setLoading(false);
     }
@@ -68,7 +96,13 @@ export default function Feed() {
 
   return (
     <div className="post-list-box">
-      <CreatePostBox onPostCreated={reloadAllPosts} />
+    {canCreatePost && (
+      <CreatePostBox
+        onPostCreated={reloadAllPosts}
+        initialGroupId={groupId || null}
+        isGroupContext={!!groupId}
+      />
+    )}
 
       {posts.map((post, index) => (
         <PostCard
@@ -85,11 +119,13 @@ export default function Feed() {
                 : prev.filter((p) => p._id !== updatedPost._id)
             )
           }
+          isInsideGroup={!!groupId}
         />
       ))}
 
       {loading && <div className="loading-spinner">Loading...</div>}
       {!hasMore && !loading && <div className="no-more-posts">No more posts</div>}
+      {error && <div className="error">{error}</div>}
     </div>
   );
 }

@@ -6,7 +6,7 @@ const notificationSchema = new Schema({
   // שולח ההודעה
   sender: { type: Schema.Types.ObjectId, ref: "User" },
   // סוג ההודעה
-  type: { type: String, enum: ['friend_request', 'comment', 'group_post', 'group_request', 'approved_request', 'share', 'message'], required: true },
+  type: { type: String, enum: ['friend_request', 'comment', 'group_post', 'group_request', 'approved_request', 'share', 'message', 'like'], required: true },
   // תוכן ההודעה
   message: { type: String, required: true },
   // כתובת לתמונה (של קבוצה או משתמש)

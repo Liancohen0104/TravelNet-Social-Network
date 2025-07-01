@@ -10,7 +10,7 @@ const messageSchema = new Schema({
   // מקבל ההודעה
   recipient: { type: Schema.Types.ObjectId, ref: "User", required: true },
   // תוכן ההודעה
-  text: { type: String, required: true },
+  text: { type: String, required: function() { return !this.attachment?.url; } },
   // צירוף מדיה
   attachment: {
     url: { type: String },

@@ -17,6 +17,7 @@ router.put('/:id/make-public',               verifyToken, postController.makePos
 router.put('/:id/make-private',              verifyToken, postController.makePostPrivate);
 router.get('/:id',                           verifyToken, postController.getPostById);
 router.post('/:id/like',                     verifyToken, postController.toggleLike);
+router.get('/:id/all-comments',              verifyToken, postController.getComments);
 router.post('/:id/comment',                  verifyToken, postController.addComment);
 router.delete('/:postId/comment/:commentId', verifyToken, postController.deleteComment);
 router.post('/:id/share-to-feed',            verifyToken, postController.sharePostToFeed);

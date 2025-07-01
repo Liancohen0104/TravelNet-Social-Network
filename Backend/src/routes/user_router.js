@@ -12,6 +12,8 @@ router.post('/reset-password',                user_controller.resetPassword);
 router.put('/update-profile',                 upload.single("image"), verifyToken, user_controller.updateProfile);
 router.get('/me',                             verifyToken, user_controller.getCurrentUser);
 router.get('/search-users',                   verifyToken, user_controller.searchUsers);
+router.get('/search-my-friends',              verifyToken, user_controller.searchMyFriends);
+router.get('/search-my-groups',               verifyToken, user_controller.searchMyGroups);
 router.delete('/delete-me',                   verifyToken, user_controller.deleteMyAccount);
 router.get('/feed',                           verifyToken, user_controller.getPersonalFeed);
 router.get('/:userId/user-posts',             optionalAuth, user_controller.getUserPosts);
@@ -25,5 +27,9 @@ router.get('/pending-requests',               verifyToken, user_controller.getPe
 router.get('/my-groups',                      verifyToken, user_controller.getMyGroups);
 router.get("/likes/:postId",                  verifyToken, user_controller.didUserLikePost);
 router.get("/my-friends",                     verifyToken, user_controller.getMyFriends);
+router.get('/my-groups-pending-requests',     verifyToken, user_controller.getMyGroupsPendingRequests);
+router.get('/unread-messages-count',          verifyToken, user_controller.getUnreadMessages);
+router.get("/:id",                            verifyToken, user_controller.getUserById);
+router.get('/:id/friend-status',              verifyToken, user_controller.getFriendStatus);
 
 module.exports = router;

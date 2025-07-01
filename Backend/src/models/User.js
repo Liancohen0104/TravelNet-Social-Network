@@ -44,12 +44,24 @@ const userSchema = new Schema(
     // תאריך לידה
     dateOfBirth: { type: Date },
 
-    // איפו סיסמא
+    // איפוס סיסמא
     resetPasswordToken:   String,
     resetPasswordExpires: Date,
 
     // פעילות אחרונה
     lastLogin: Date,
+
+    // האם מחובר
+    is_online: {
+      type: Boolean,
+      default: false,
+    },
+
+    // כמות התראות שלא נקראו
+    unreadNotificationsCount: {type: Number, default: 0 },
+
+    // כמות הודעות שלא נקראו
+    unreadMessagesCount: { type: Number, default: 0 },
 
     // חברים של המשתמש
     friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],

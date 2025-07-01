@@ -72,14 +72,6 @@ const groupApi = {
       headers: getAuthHeaders(),
     }),
 
-  // שליפת כל הבקשות הממתינות לקבוצה (רק ליוצר)
-  getPendingRequests: (groupId) =>
-    $.ajax({
-      url: `${BASE_URL}/groups/${groupId}/pending-requests`,
-      method: "GET",
-      headers: getAuthHeaders(),
-    }),
-
   // קבלת פרטי קבוצה
   getGroupDetails: (groupId) =>
     $.ajax({

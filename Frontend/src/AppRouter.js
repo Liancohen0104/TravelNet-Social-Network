@@ -10,10 +10,8 @@ import ResetPassword from "./pages/ResetPassword";
 // משתמש
 import UserLayout from "./layouts/UserLayout";
 import Feed from "./components/Feed";
-import Messenger from "./components/Messenger";
-import Groups from "./components/Groups";
-import Notifications from "./components/Notifications";
 import ProfilePage from "./pages/ProfilePage";
+import GroupProfilePage from "./pages/GroupProfilePage";
 
 // אדמין
 // import AdminLayout from "./layouts/AdminLayout";
@@ -21,8 +19,9 @@ import ProfilePage from "./pages/ProfilePage";
 // import UserManagement from "./pages/UserManagement";
 // import PostManagement from "./pages/PostManagement";
 
-// Common
+// כללי
 import NotFound from "./pages/NotFound";
+import ViewSharedPost from './pages/ViewSharedPost';
 
 export default function AppRouter() {
   const { user } = useAuth();
@@ -30,7 +29,7 @@ export default function AppRouter() {
   return (
     <Routes>
         <Route path="/reset-password" element={<ResetPassword />} />
-
+        
     {/* אורח */}
     {!user && (
         <>
@@ -38,6 +37,7 @@ export default function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordRequest />} />
+        <Route path="/view-shared-post/:uuid" element={<ViewSharedPost />} />
         <Route path="*" element={<NotFound />} />
         </>
     )}
@@ -47,11 +47,10 @@ export default function AppRouter() {
         <>
         <Route path="/" element={<UserLayout />}>
           <Route index element={<Feed />} />
-          <Route path="/feed" element={<Feed />} />
-          <Route path="/messenger" element={<Messenger />} />
-          <Route path="/groups" element={<Groups />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="profile/:id" element={<ProfilePage />} />
+          <Route path="group/:groupId" element={<GroupProfilePage />} />
+          <Route path="view-shared-post/:uuid" element={<ViewSharedPost />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         </>

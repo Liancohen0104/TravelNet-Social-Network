@@ -1,5 +1,4 @@
-// PostCard.jsx
-import React, { useState, useEffect, forwardRef } from "react";
+import React, { useState, useEffect, forwardRef, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -13,14 +12,20 @@ import userApi from "../services/usersApi";
 import chatApi from "../services/chatApi";
 import CreatePostBox from "./CreatePostBox";
 import "../css/PostCard.css";
+import "../css/UserLayout.css";
 import { useAuth } from "../contexts/AuthContext";
+import { Link } from "react-router-dom";
 
-const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
+const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup=null }, ref) => {
   const { user } = useAuth();
   const [likes, setLikes] = useState(post.likes?.length || 0);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState(post.comments || []);
+  const [comments, setComments] = useState([]);
+  const [commentPage, setCommentPage] = useState(0);
+  const [hasMoreComments, setHasMoreComments] = useState(true);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const commentObserver = useRef(null);
   const [newComment, setNewComment] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [showMessengerModal, setShowMessengerModal] = useState(false);
@@ -28,18 +33,88 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const loadComments = async (postId, pageToLoad = commentPage + 1) => {
+    if (loadingComments || !hasMoreComments) return;
+    setLoadingComments(true);
+
+    try {
+      const res = await postApi.getComments(postId, pageToLoad);
+      const newComments = res.comments || [];
+
+      if (newComments.length === 0) {
+        setHasMoreComments(false);
+      } else {
+        setComments((prev) => {
+          const existingIds = new Set(prev.map((c) => c._id));
+          const uniqueNew = newComments.filter((c) => !existingIds.has(c._id));
+          return [...prev, ...uniqueNew];
+        });
+
+        setCommentPage(pageToLoad); // עדכון מדויק של הדף
+        if (newComments.length < 5) setHasMoreComments(false);
+      }
+    } catch (err) {
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const reloadAllComments = async (postId) => {
+    if (commentObserver.current) commentObserver.current.disconnect();
+    setLoadingComments(true);
+    setComments([]);
+    setCommentPage(0);
+    setHasMoreComments(true);
+
+    try {
+      const res = await postApi.getComments(postId, 1);
+      const newComments = res.comments || [];
+
+      setComments(newComments);
+      setCommentPage(1);
+      if (newComments.length < 10) setHasMoreComments(false);
+    } catch (err) {
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const lastCommentRef = useCallback(
+    (node) => {
+      if (loadingComments) return;
+      if (commentObserver.current) commentObserver.current.disconnect();
+      commentObserver.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMoreComments) {
+          loadComments(post._id); 
+        }
+      });
+      if (node) commentObserver.current.observe(node);
+    },
+    [loadingComments, hasMoreComments, post._id]
+  );
 
   useEffect(() => {
-    const checkIfLiked = async () => {
-      try {
-        const res = await userApi.isPostLiked(post._id);
-        setIsLiked(res.liked);
-      } catch (err) {
-        console.error("Error checking like status:", err);
-      }
-    };
-    checkIfLiked();
-  }, [post._id]);
+    if (showComments && post._id) {
+      reloadAllComments(post._id);
+    }
+  }, [showComments, post._id]);
 
   const handleLike = async () => {
     try {
@@ -47,18 +122,36 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       setIsLiked((prev) => !prev);
       setLikes((prev) => (isLiked ? prev - 1 : prev + 1));
     } catch (err) {
-      console.error("Error toggling like:", err);
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const updatedComments = await postApi.addComment(post._id, newComment.trim());
-      setComments(updatedComments);
+      const res = await postApi.addComment(post._id, newComment.trim());
+      const newAddedComment = res[res.length - 1];
+      setComments((prev) => [newAddedComment, ...prev]);
+      onPostUpdated?.({ ...post, commentsCount: (post.commentsCount || 0) + 1 });
       setNewComment("");
     } catch (err) {
-      console.error("Error adding comment:", err);
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -66,8 +159,17 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
     try {
       await postApi.deleteComment(post._id, commentId);
       setComments((prev) => prev.filter((c) => c._id !== commentId));
+      onPostUpdated?.({ ...post, commentsCount: post.commentsCount - 1 });
     } catch (err) {
-      console.error("Error deleting comment:", err);
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -77,7 +179,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       await navigator.clipboard.writeText(res.shareLink);
       alert("Link copied to clipboard");
     } catch (err) {
-      console.error("Error copying link:", err);
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -91,8 +201,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, "_blank");
     } catch (err) {
-      console.error("Error sharing via WhatsApp:", err);
-      alert("Failed to share the post via WhatsApp.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -108,8 +225,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.location.href = mailto;
     } catch (err) {
-      console.error("Error sharing via email:", err);
-      alert("Could not share post via email.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -119,8 +243,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       setFriends(res || []);
       setShowMessengerModal(true);
     } catch (err) {
-      console.error("Failed to load friends list", err);
-      alert("Could not load friends");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -149,8 +280,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       setShowMessengerModal(false);
       setSelectedFriendIds([]);
     } catch (err) {
-      console.error("Messenger share failed:", err);
-      alert("Failed to send message.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -160,8 +298,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       alert("Post saved successfully!");
       setShowMenu(false);
     } catch (err) {
-      console.error("Error saving post:", err);
-      alert("Failed to save post.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -177,8 +322,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       alert("Post deleted.");
       onPostDeleted?.(post._id); 
     } catch (err) {
-      console.error("Error deleting post:", err);
-      alert("Failed to delete post.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -189,8 +341,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       setShowMenu(false);
       onPostDeleted?.(post._id);
     } catch (err) {
-      console.error("Error making post private:", err);
-      alert("Failed to update post visibility.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -202,8 +361,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
       const updatedPost = { ...post, isPublic: true };
       onPostUpdated?.(updatedPost);
     } catch (err) {
-      console.error("Error making post public:", err);
-      alert("Failed to update post visibility.");
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -212,9 +378,16 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
     try {
       const updated = await postApi.getPostById(post._id);
       onPostUpdated?.(updated);
-    } catch (err) {
-      console.error("Failed to fetch updated post:", err);
-      alert("Post updated, but failed to refresh content.");
+    }catch (err) {
+      if (err.responseJSON?.error) {
+        setError(err.responseJSON.error);
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
@@ -222,7 +395,15 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
     <>
       <div className="post-card" ref={ref}>
         <div className="post-header">
-          <img src={post.group ? post.group.imageURL : post.author.imageURL} alt="avatar" className="post-avatar" />
+          {post.group && !isInsideGroup ? (
+            <Link to={`/group/${post.group._id}`}>
+              <img src={post.group.imageURL} alt="Group avatar" className="post-avatar" />
+            </Link>
+          ) : (
+            <Link to={`/profile/${post.author._id}`}>
+              <img src={post.author.imageURL} alt="User avatar" className="post-avatar" />
+            </Link>
+          )}
           <div className="post-menu-container">
             <button className="menu-button" onClick={() => setShowMenu((prev) => !prev)}>⋯</button>
             {showMenu && (
@@ -243,7 +424,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
             )}
           </div>
           <div className="post-info">
-            {post.group ? (
+            {post.group && !isInsideGroup ? (
               <>
                 <div className="post-group-name">{post.group.name}</div>
                 <div className="post-author-name group-author">
@@ -277,7 +458,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
         <div className="post-stats">
           <span className="likes-count">{likes} likes</span>
           <span className="comments-count" onClick={() => setShowComments(true)} style={{ cursor: "pointer" }}>
-            {comments.length} comments
+            {post.commentsCount} comments
           </span>
         </div>
 
@@ -306,25 +487,31 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
             </div>
             <div className="modal-content">
               <div className="comments-list">
-                {comments.map((c) => (
-                  <div key={c._id} className="comment-item">
-                    <img src={c.user.imageURL} alt="Avatar" className="comment-avatar" />
-                    <div className="comment-body">
-                      <div className="comment-author">
-                        <strong>{c.user.firstName} {c.user.lastName}</strong>
-                      </div>
-                      <div className="comment-time">
-                        {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
-                      </div>
-                      <div className="comment-text">{c.text}</div>
-                      {c.user._id === user._id && (
-                        <button className="delete-comment-btn" onClick={() => handleDeleteComment(c._id)}>
-                          <FaTrash />
-                        </button>
-                      )}
+                {comments.map((c, index) => (
+                <div
+                  key={c._id}
+                  className="comment-item"
+                  ref={index === comments.length - 1 ? lastCommentRef : null}>
+                  <img src={c.user.imageURL} alt="Avatar" className="comment-avatar" />
+                  <div className="comment-body">
+                    <div className="comment-author">
+                      <strong>{c.user.firstName} {c.user.lastName}</strong>
                     </div>
+                    <div className="comment-time">
+                      {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
+                    </div>
+                    <div className="comment-text">{c.text}</div>
+                    {c.user._id === user._id && (
+                      <button className="delete-comment-btn" onClick={() => handleDeleteComment(c._id)}>
+                        <FaTrash />
+                      </button>
+                    )}
                   </div>
-                ))}
+                </div>
+              ))}
+              {!hasMoreComments && !loadingComments && comments.length === 0 && (
+                <div className="no-more-comments">No comments yet</div>
+              )}
               </div>
               <div className="comment-input-section sticky-input">
                 <div className="comment-input-box">
@@ -397,16 +584,27 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
               <button onClick={() => setShowMessengerModal(false)}><FaTimes /></button>
             </div>
             <div className="modal-body">
-              {friends.map((friend) => (
-                <div
-                  key={friend.id}
-                  className={`friend-item ${selectedFriendIds.includes(friend.id) ? "selected" : ""}`}
-                  onClick={() => toggleFriendSelection(friend.id)}
-                >
-                  <img src={friend.imageURL} alt="avatar" className="comment-avatar" />
-                  <span>{friend.name}</span>
-                  {selectedFriendIds.includes(friend.id) && <FaCheck className="check-icon" />}
-                </div>
+              <input
+                type="text"
+                className="search-input-modal"
+                placeholder="Search friends..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {friends
+                .filter((friend) =>
+                  friend.name.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map((friend) => (
+                  <div
+                    key={friend.id}
+                    className={`friend-item ${selectedFriendIds.includes(friend.id) ? "selected" : ""}`}
+                    onClick={() => toggleFriendSelection(friend.id)}
+                  >
+                    <img src={friend.imageURL} alt="avatar" className="comment-avatar" />
+                    <span>{friend.name}</span>
+                    {selectedFriendIds.includes(friend.id) && <FaCheck className="check-icon" />}
+                  </div>
               ))}
             </div>
             <div className="modal-footer">
@@ -422,6 +620,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated }, ref) => {
         </div>,
         document.body
       )}
+      {error && <div className="error">{error}</div>}
     </>
   );
 });
