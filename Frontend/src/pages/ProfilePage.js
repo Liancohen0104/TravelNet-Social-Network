@@ -47,14 +47,11 @@ export default function ProfilePage() {
     setLoadingSaved(true);
     try {
         const res = await usersApi.getSavedPosts();
-
-       console.log("res", res)
         const enriched = await Promise.all(
         res.map(async (post) => {
             const isLiked = post.likes?.includes(authUser._id);
             return { ...post, isLiked };
         }));
-        console.log("enriched", enriched)
         setSavedPosts(enriched);
         setShowSavedModal(true);
     } catch (err) {

@@ -490,7 +490,7 @@ exports.sharePostToFeed = async (req, res) => {
     const preview = newPost.content.length > 80 ? newPost.content.slice(0, 100) + "..." : newPost.content;
 
     if (originalAuthor._id.toString() !== sharingUser._id.toString()) {
-      const notification = await Notification.create({
+      const notification = await ate({
         recipient: originalAuthor._id,
         sender: sharingUser._id,
         type: "share",

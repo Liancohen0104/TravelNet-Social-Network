@@ -57,7 +57,7 @@ const postApi = {
       headers: getAuthHeaders(),
     }),
 
-  // שליפת תגובות עם pagination
+  // שליפת תגובות
   getComments: (postId, page = 1) =>
     $.ajax({
       url: `${BASE_URL}/posts/${postId}/all-comments?page=${page}`,

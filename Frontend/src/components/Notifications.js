@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   FaUserPlus, FaCommentAlt, FaUsers, FaCheck,
   FaShareAlt, FaEnvelope, FaTimes, FaThumbsUp
 } from "react-icons/fa";
 import notificationApi from "../services/notificationApi";
 import "../css/UserLayout.css";
+import postApi from "../services/postApi";
+import PostCard from "../components/PostCard"
 
 const typeIcons = {
   friend_request: <FaUserPlus />,
@@ -15,6 +19,7 @@ const typeIcons = {
   share: <FaShareAlt />,
   message: <FaEnvelope />,
   like: <FaThumbsUp />,
+  friend_approved: <FaCheck />,
 };
 
 export default function Notifications({ unreadNotifications, setUnreadNotifications, notifications, setNotifications }) {
@@ -22,6 +27,10 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [singlePost, setSinglePost] = useState(null);
+  const [showSinglePostModal, setShowSinglePostModal] = useState(false);
+  const { user: authUser } = useAuth();
+  const navigate = useNavigate();
 
   // טעינה ראשונית
   useEffect(() => {
@@ -70,6 +79,18 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
     fetchNotifications(1);
   };
 
+  const openPostModal = async (postId) => {
+    try {
+      const post = await postApi.getPostById(postId);
+      const isLiked = post.likes?.includes(authUser._id);
+      const enriched = { ...post, isLiked };
+      setSinglePost(enriched);
+      setShowSinglePostModal(true);
+    } catch (err) {
+      alert("Failed to load post");
+    }
+  };
+
   const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
       try {
@@ -83,6 +104,28 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
       } catch (err) {
         console.error("Failed to mark as read:", err);
       }
+    }
+
+    switch (notification.type) {
+      case "like":
+      case "comment":
+      case "share":
+        openPostModal(notification.link?.match(/\/posts\/(.+)/)?.[1]);
+        break;
+
+      case "group_request":
+      case "friend_request":
+      case "friend_approved":
+        navigate(`/profile/${notification.sender}`);
+        break;
+
+      case "approved_request":
+      case "group_post":
+        navigate(`/group/${notification.link?.match(/\/groups\/(.+)/)?.[1]}`);
+        break;
+
+      default:
+        console.warn("Unhandled notification type:", notification.type);
     }
   };
 
@@ -159,6 +202,23 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
           </div>
         ))}
 
+        {showSinglePostModal && singlePost && (
+          <div className="comment-modal-overlay" onClick={() => setShowSinglePostModal(false)}>
+            <div className="comment-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Post</h3>
+                <button className="close-btn" onClick={() => setShowSinglePostModal(false)}><FaTimes /></button>
+              </div>
+              <div className="modal-content">
+                <PostCard
+                  post={singlePost}
+                  onPostDeleted={() => setShowSinglePostModal(false)}
+                  onPostUpdated={(updatedPost) => setSinglePost(updatedPost)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         {loading && <div className="loader">Loading more...</div>}
       </div>
     </div>

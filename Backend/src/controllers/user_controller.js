@@ -485,7 +485,7 @@ exports.getUserPosts = async (req, res) => {
       .populate('sharedFrom', 'content imageUrl author')
       .populate('sharedFrom.author', 'firstName lastName imageURL')
       .populate('comments.user', 'firstName lastName imageURL')
-      .populate('group', 'name')
+      .populate('group', 'name imageURL')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -630,9 +630,27 @@ exports.acceptFriendRequest = async (req, res) => {
   await user.save();
   await sender.save();
 
+  // יצירת התראה חדשה
+  const notification = await Notification.create({
+    recipient: senderId,
+    sender: userId,
+    type: "friend_approved",
+    message: `${user.firstName} ${user.lastName} accepted your friend request`,
+    link: `/profile/${userId}`,
+    image: user.imageURL,
+    isRead: false,
+  });
+
+  await User.findByIdAndUpdate(senderId, {
+    $inc: { unreadNotificationsCount: 1 }
+  });
+
   const io = getIO();
   io.to(userId.toString()).emit("friend-request-accepted");
   io.to(senderId.toString()).emit("friend-request-accepted");
+
+  // שליחת ההתראה
+  io.to(senderId.toString()).emit("receive-notification", notification);
 
   res.json({ message: 'Friend request accepted' });
 };
