@@ -140,10 +140,14 @@ export default function ProfilePage() {
   const handleEditProfile = async () => {
     const formData = new FormData();
     for (let key in form) {
-      if (form[key]) formData.append(key, form[key]);
+      formData.append(key, form[key]);
     }
     if (selectedImage) {
       formData.append("image", selectedImage);
+    }
+
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}: ${value}`);
     }
 
     try {
@@ -248,8 +252,7 @@ export default function ProfilePage() {
 
         {!isMyProfile && (
           <div className="friend-action-container">
-            {console.log("friendStatus", friendStatus)}
-            {friendStatus === "none" && (
+            {friendStatus === "none" && authUser.role !== "admin" && (
               <button className="friend-btn" onClick={handleSendFriendRequest}>Add Friend</button>
             )}
             {friendStatus === "pending" && (
@@ -261,12 +264,13 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
-
-      <div className="profile-bottom">
-        <Feed userId={userId} canCreatePost={isMyProfile} />
-      </div>
-
       
+      {(!isMyProfile || authUser.role !== "admin") &&
+        <div className="profile-bottom">
+          <Feed userId={userId} canCreatePost={isMyProfile} />
+        </div>
+      }
+
       {/* מודל עריכה */}
       {showEdit && (
         <div className="comment-modal-overlay" onClick={() => setShowEdit(false)}>
@@ -397,6 +401,9 @@ export default function ProfilePage() {
                             setSavedPosts((prev) =>
                             prev.map((p) => (p._id === updatedPost._id ? updatedPost : p))
                             )
+                        }
+                        onUnsave={() =>
+                          setSavedPosts((prev) => prev.filter((p) => p._id !== post._id))
                         }
                         />
                     </div>

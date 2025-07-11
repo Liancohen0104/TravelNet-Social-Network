@@ -1,0 +1,190 @@
+.graphs-page {
+  padding: 20px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #222;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.graphs-page h2 {
+  margin-bottom: 40px;
+}
+
+.graph-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 20px;
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 20px 28px 20px 20px;
+  margin-bottom: 32px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.graph-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+  border-radius: 20px;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+}
+
+.graph-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.graph-card:hover::before {
+  opacity: 0.95;
+}
+
+.graph-card h3 {
+  font-size: 24px;
+  margin-bottom: 30px;
+  color: #1e293b;
+  font-weight: 600;
+  text-align: center;
+  position: relative;
+}
+
+.graphs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 32px;
+  margin-top: 20px;
+}
+
+.graphs-grid .graph-card {
+  margin-bottom: 0;
+}
+
+.graphs-page .recharts-wrapper {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.graphs-page .recharts-cartesian-axis-tick-value {
+  font-size: 12px;
+  fill: #64748b;
+  font-weight: 500;
+}
+
+.graphs-page .recharts-legend-item-text {
+  color: #475569 !important;
+  font-weight: 500;
+}
+
+.graphs-page .recharts-tooltip-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.graphs-page .recharts-default-tooltip {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+}
+
+.graphs-page .recharts-tooltip-label {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+}
+
+.graphs-page .recharts-tooltip-item {
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+.graphs-page .recharts-bar-rectangle {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.graphs-page .recharts-line-curve {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  stroke-width: 3px;
+}
+
+.graphs-page .recharts-pie-sector {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.graph-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  color: #64748b;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.graph-loading::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  margin-right: 12px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.graph-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  color: #ef4444;
+  font-size: 16px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.graph-card {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.graph-card:nth-child(1) { animation-delay: 0.1s; }
+.graph-card:nth-child(2) { animation-delay: 0.2s; }
+.graph-card:nth-child(3) { animation-delay: 0.3s; }
+.graph-card:nth-child(4) { animation-delay: 0.4s; }
+.graph-card:nth-child(5) { animation-delay: 0.5s; }
+.graph-card:nth-child(6) { animation-delay: 0.6s; }
+
+.graph-description {
+  font-size: 0.95rem;
+  color: #475569;
+  margin-top: -20px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 400;
+}

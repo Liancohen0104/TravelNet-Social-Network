@@ -8,7 +8,6 @@ const postSchema = new Schema({
   content: { type: String, required: false },
   imageUrls: [{ type: String }],
   videoUrls: [{ type: String }],
-  createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date },
   isPublic: { type: Boolean, default: false },
   likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
@@ -25,7 +24,7 @@ const postSchema = new Schema({
 
   sharedFrom: { type: Schema.Types.ObjectId, ref: 'Post', default: null }, // אם הפוסט הוא שיתוף אז זה הפוסט ששותף
   sharedToGroup: { type: Schema.Types.ObjectId, ref: 'Group', default: null } // קבוצה שאליה שותף הפוסט
-});
+}, { timestamps: true });
 
 module.exports = models.Post || model('Post', postSchema);
 

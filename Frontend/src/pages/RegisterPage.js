@@ -14,9 +14,9 @@ export default function RegisterPage() {
     image: null,
     bio: "",
     location: "",
-    birthDay: "1",
-    birthMonth: "January",
-    birthYear: "2000",
+    birthDay: "",
+    birthMonth: "",
+    birthYear: "",
   });
 
   const [error, setError] = useState("");

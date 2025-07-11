@@ -32,7 +32,6 @@ const searchUsers = async (query, limit = 3) => {
     .limit(limit);
 };
 
-// חיפוש פוסטים (לפי תוכן או יוצר)
 // חיפוש פוסטים לפי תוכן + שם יוצר
 const searchPosts = async (query, limit = 3) => {
   const regex = new RegExp(query, 'i');
@@ -54,6 +53,15 @@ const searchPosts = async (query, limit = 3) => {
     ]
   })
     .populate('author', 'firstName lastName imageURL')
+    .populate('group', 'name imageURL') 
+    .populate({
+        path: 'sharedFrom',
+        select: 'content createdAt author',
+        populate: {
+          path: 'author',
+          select: 'firstName lastName imageURL',
+        }
+      })
     .sort({ createdAt: -1 })
     .limit(limit);
 };

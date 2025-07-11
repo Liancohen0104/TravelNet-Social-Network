@@ -21,7 +21,6 @@ export default function GroupProfilePage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const socket = useSocket();
-
   const [group, setGroup] = useState(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [members, setMembers] = useState([]);
@@ -32,7 +31,7 @@ export default function GroupProfilePage() {
 
   const isCreator = user && group && user._id === group.creator._id;
   const isMember = group?.members?.includes(user?._id);
-  const canViewMembers = group?.isPublic || isMember;
+  const canViewMembers = group?.isPublic || isMember || user.role === "admin";
 
   const [form, setForm] = useState({
     name: "",
@@ -218,7 +217,7 @@ export default function GroupProfilePage() {
 
           {!isCreator && membershipStatus !== "loading" && (
             <div className="friend-action-container">
-              {membershipStatus === "none" && (
+              {membershipStatus === "none" && user?.role !== "admin" && (
                 <button className="friend-btn" onClick={handleJoin}>Join Group</button>
               )}
               {membershipStatus === "pending" && (
@@ -234,7 +233,7 @@ export default function GroupProfilePage() {
 
       <div className="profile-bottom">
         {group.isPublic && <Feed groupId={groupId} />}
-        {!group.isPublic && isMember && <Feed groupId={groupId} canCreatePost={isMember} />}
+        {!group.isPublic && (isMember || user?.role === "admin") && <Feed groupId={groupId} canCreatePost={isMember} />}
       </div>
 
       {/* מודל עריכת קבוצה */}

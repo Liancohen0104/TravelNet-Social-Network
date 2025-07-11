@@ -16,7 +16,7 @@ import "../css/UserLayout.css";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
 
-const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup=null }, ref) => {
+const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup=null, onUnsave=null }, ref) => {
   const { user } = useAuth();
   const [likes, setLikes] = useState(post.likes?.length || 0);
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -35,6 +35,20 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
   const [showEditModal, setShowEditModal] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    const checkSaved = async () => {
+      try {
+        const saved = await userApi.isPostSaved(post?._id);
+        setIsSaved(saved.isSaved);
+      } catch (err) {
+        console.error("Failed to fetch saved status:", err);
+      }
+    };
+
+    checkSaved();
+  }, [post?._id]);
 
   const loadComments = async (postId, pageToLoad = commentPage + 1) => {
     if (loadingComments || !hasMoreComments) return;
@@ -48,8 +62,8 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
         setHasMoreComments(false);
       } else {
         setComments((prev) => {
-          const existingIds = new Set(prev.map((c) => c._id));
-          const uniqueNew = newComments.filter((c) => !existingIds.has(c._id));
+          const existingIds = new Set(prev.map((c) => c?._id));
+          const uniqueNew = newComments.filter((c) => !existingIds.has(c?._id));
           return [...prev, ...uniqueNew];
         });
 
@@ -102,23 +116,23 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
       if (commentObserver.current) commentObserver.current.disconnect();
       commentObserver.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMoreComments) {
-          loadComments(post._id); 
+          loadComments(post?._id); 
         }
       });
       if (node) commentObserver.current.observe(node);
     },
-    [loadingComments, hasMoreComments, post._id]
+    [loadingComments, hasMoreComments, post?._id]
   );
 
   useEffect(() => {
-    if (showComments && post._id) {
-      reloadAllComments(post._id);
+    if (showComments && post?._id) {
+      reloadAllComments(post?._id);
     }
-  }, [showComments, post._id]);
+  }, [showComments, post?._id]);
 
   const handleLike = async () => {
     try {
-      await postApi.toggleLike(post._id);
+      await postApi.toggleLike(post?._id);
       setIsLiked((prev) => !prev);
       setLikes((prev) => (isLiked ? prev - 1 : prev + 1));
     } catch (err) {
@@ -137,7 +151,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await postApi.addComment(post._id, newComment.trim());
+      const res = await postApi.addComment(post?._id, newComment.trim());
       const newAddedComment = res[res.length - 1];
       setComments((prev) => [newAddedComment, ...prev]);
       onPostUpdated?.({ ...post, commentsCount: (post.commentsCount || 0) + 1 });
@@ -157,8 +171,8 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleDeleteComment = async (commentId) => {
     try {
-      await postApi.deleteComment(post._id, commentId);
-      setComments((prev) => prev.filter((c) => c._id !== commentId));
+      await postApi.deleteComment(post?._id, commentId);
+      setComments((prev) => prev.filter((c) => c?._id !== commentId));
       onPostUpdated?.({ ...post, commentsCount: post.commentsCount - 1 });
     } catch (err) {
       if (err.responseJSON?.error) {
@@ -175,7 +189,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleCopyLink = async () => {
     try {
-      const res = await postApi.getShareLink(post._id);
+      const res = await postApi.getShareLink(post?._id);
       await navigator.clipboard.writeText(res.shareLink);
       alert("Link copied to clipboard");
     } catch (err) {
@@ -193,7 +207,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleWhatsappShare = async () => {
     try {
-      const res = await postApi.getShareLink(post._id);
+      const res = await postApi.getShareLink(post?._id);
       const link = res.shareLink;
       if (!link) throw new Error("No link found in response");
 
@@ -215,7 +229,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleEmailShare = async () => {
     try {
-      const res = await postApi.getShareLink(post._id);
+      const res = await postApi.getShareLink(post?._id);
       const rawLink = res.shareLink || res.link || res.url || res.data?.link || res.data?.url;
       if (!rawLink) throw new Error("No link found");
       const link = `Link to view the post:\n${"\u200E" + rawLink}`;
@@ -271,7 +285,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
       for (const friendId of selectedFriendIds) {
         const formData = new FormData();
         formData.append("recipientId", friendId);
-        const message = `Hey! I wanted to share this post with you:\n\n${post.content || ""}\n\nhttps://yourdomain.com/posts/${post._id}`;
+        const message = `Hey! I wanted to share this post with you:\n\n${post?.content || ""}\n\nhttps://yourdomain.com/posts/${post?._id}`;
         formData.append("text", message);
         await chatApi.sendMessage(formData);
       }
@@ -294,19 +308,18 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleSavePost = async () => {
     try {
-      await userApi.toggleSavePost(post._id);
-      alert("Post saved successfully!");
+      const res = await userApi.toggleSavePost(post?._id);
+      const nowSaved = res.saved;
+
+      setIsSaved(nowSaved);
       setShowMenu(false);
-    } catch (err) {
-      if (err.responseJSON?.error) {
-        setError(err.responseJSON.error);
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else if (err.message) {
-        setError(err.message);
-      } else {
-        setError("Something went wrong");
+
+      // אם הפוסט בוטל מהמועדפים – נעדכן את ההורה
+      if (!nowSaved) {
+        onUnsave?.();
       }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || "Something went wrong");
     }
   };
 
@@ -318,9 +331,9 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
     const confirmDelete = window.confirm("Are you sure you want to delete this post?");
     if (!confirmDelete) return;
     try {
-      await postApi.deletePost(post._id);
+      await postApi.deletePost(post?._id);
       alert("Post deleted.");
-      onPostDeleted?.(post._id); 
+      onPostDeleted?.(post?._id); 
     } catch (err) {
       if (err.responseJSON?.error) {
         setError(err.responseJSON.error);
@@ -336,10 +349,10 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleMakePrivate = async () => {
     try {
-      await postApi.makePrivate(post._id);
+      await postApi.makePrivate(post?._id);
       alert("Post set to private.");
       setShowMenu(false);
-      onPostDeleted?.(post._id);
+      onPostDeleted?.(post?._id);
     } catch (err) {
       if (err.responseJSON?.error) {
         setError(err.responseJSON.error);
@@ -355,7 +368,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   const handleMakePublic = async () => {
     try {
-      await postApi.makePublic(post._id);
+      await postApi.makePublic(post?._id);
       alert("Post set to public.");
       setShowMenu(false);
       const updatedPost = { ...post, isPublic: true };
@@ -376,7 +389,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
   const handlePostUpdated = async () => {
     setShowEditModal(false);
     try {
-      const updated = await postApi.getPostById(post._id);
+      const updated = await postApi.getPostById(post?._id);
       onPostUpdated?.(updated);
     }catch (err) {
       if (err.responseJSON?.error) {
@@ -393,90 +406,156 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
   return (
     <>
-      <div className="post-card" ref={ref}>
-        <div className="post-header">
-          {post.group && !isInsideGroup ? (
-            <Link to={`/group/${post.group._id}`}>
-              <img src={post.group.imageURL} alt="Group avatar" className="post-avatar" />
-            </Link>
-          ) : (
-            <Link to={`/profile/${post.author._id}`}>
-              <img src={post.author.imageURL} alt="User avatar" className="post-avatar" />
-            </Link>
-          )}
-          <div className="post-menu-container">
-            <button className="menu-button" onClick={() => setShowMenu((prev) => !prev)}>⋯</button>
-            {showMenu && (
-              <div className="post-dropdown-menu">
-                <button onClick={handleSavePost}><FaSave /> Save Post</button>
-                {post.author._id === user._id && (
-                  <>
-                    <button onClick={handleEditPost}><FaEdit /> Edit Post</button>
-                    <button onClick={handleDeletePost}><FaTrashAlt /> Delete Post</button>
-                    {post.isPublic ? (
-                      <button onClick={handleMakePrivate}><FaLock /> Make Private</button>
-                    ) : (
-                      <button onClick={handleMakePublic}><FaGlobeAmericas /> Make Public</button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="post-info">
-            {post.group && !isInsideGroup ? (
+    <div className="post-card" ref={ref}>
+      <div className="post-menu-container">
+        <button className="menu-button" onClick={() => setShowMenu((prev) => !prev)}>⋯</button>
+        {showMenu && (
+          <div className="post-dropdown-menu">
+           {user.role !== "admin" && <button onClick={handleSavePost}><FaSave /> {isSaved ? "Unsave Post" : "Save Post"}</button>}
+           <>
+            {(post.author?._id === user?._id) && (
               <>
-                <div className="post-group-name">{post.group.name}</div>
-                <div className="post-author-name group-author">
-                  {post.author.firstName} {post.author.lastName}
-                </div>
+                <button onClick={handleEditPost}><FaEdit /> Edit Post</button>
+                {post.isPublic ? (
+                  <button onClick={handleMakePrivate}><FaLock /> Make Private</button>
+                ) : (
+                  <button onClick={handleMakePublic}><FaGlobeAmericas /> Make Public</button>
+                )}
               </>
-            ) : (
-              <div className="post-author-name">
-                {post.author.firstName} {post.author.lastName}
-              </div>
             )}
-            <div className="post-time">
-              {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-            </div>
-          </div>
-        </div>
-
-        {post.content && <div className="post-text">{post.content}</div>}
-
-        {(post.imageUrls?.length > 0 || post.videoUrls?.length > 0) && (
-          <div className="post-media-grid">
-            {post.imageUrls.map((url, i) => (
-              <img key={`img-${i}`} src={url} alt="Post media" className="post-media-item" />
-            ))}
-            {post.videoUrls.map((url, i) => (
-              <video key={`vid-${i}`} src={url} controls className="post-media-item" />
-            ))}
+            {(post.author?._id === user?._id || user.role === "admin") && (
+              <button onClick={handleDeletePost}><FaTrashAlt /> Delete Post</button>
+            )}
+           </>
           </div>
         )}
-
-        <div className="post-stats">
-          <span className="likes-count">{likes} likes</span>
-          <span className="comments-count" onClick={() => setShowComments(true)} style={{ cursor: "pointer" }}>
-            {post.commentsCount} comments
-          </span>
-        </div>
-
-        <div className="post-actions">
-          <button className="action-btn" onClick={handleLike}>
-            <FaThumbsUp className={`icon ${isLiked ? "liked-icon" : ""}`} />
-            <span className={isLiked ? "liked-text" : ""}>Like</span>
-          </button>
-          <button className="action-btn" onClick={() => setShowComments(true)}>
-            <FaCommentAlt className="icon" />
-            <span>Comment</span>
-          </button>
-          <button className="action-btn" onClick={() => setShowShareModal(true)}>
-            <FaShare className="icon" />
-            <span>Share</span>
-          </button>
-        </div>
       </div>
+      {/* אם זה פוסט שמשותף מפוסט אחר */}
+      {post.sharedFrom ? (
+        <>
+          {/* Header של המשתף */}
+          <div className="post-header">
+            <Link to={`/profile/${post.author?._id}`}>
+              <img src={post.author?.imageURL} alt="Avatar" className="post-avatar" />
+            </Link>
+            <div className="post-info">
+              <div className="post-author-name">
+                <strong>{post.author?.firstName} {post.author?.lastName}</strong> shared a post
+              </div>
+              <div className="post-time">
+                {formatDistanceToNow(new Date(post?.createdAt), { addSuffix: true })}
+              </div>
+            </div>
+          </div>
+
+          {/* תוכן אישי של המשתף */}
+          {post.content && <div className="post-text">{post.content}</div>}
+
+          <hr className="shared-divider" />
+
+          {/* הפוסט המקורי שבתוך השיתוף */}
+          <div className="shared-post-box">
+            <div className="post-header">
+              <Link to={`/profile/${post.sharedFrom.author?._id}`}>
+                <img src={post.sharedFrom.author?.imageURL} alt="Avatar" className="post-avatar" />
+              </Link>
+              <div className="post-info">
+                <div className="post-author-name">
+                  {post.sharedFrom.author?.firstName} {post.sharedFrom.author?.lastName}
+                </div>
+                <div className="post-time">
+                 {post.sharedFrom?.createdAt
+                  ? formatDistanceToNow(new Date(post.sharedFrom.createdAt), { addSuffix: true }) : ""}
+                </div>
+              </div>
+            </div>
+            {post.sharedFrom.content && (
+              <div className="post-text">{post.sharedFrom.content}</div>
+            )}
+            {(post.sharedFrom.imageUrls?.length > 0 || post.sharedFrom.videoUrls?.length > 0) && (
+              <div className="post-media-grid">
+                {post.sharedFrom.imageUrls.map((url, i) => (
+                  <img key={`img-${i}`} src={url} alt="Post media" className="post-media-item" />
+                ))}
+                {post.sharedFrom.videoUrls.map((url, i) => (
+                  <video key={`vid-${i}`} src={url} controls className="post-media-item" />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Header רגיל */}
+          <div className="post-header">
+            {post.group && !isInsideGroup ? (
+              <Link to={`/group/${post.group?._id}`}>
+                <img src={post.group?.imageURL} alt="Group avatar" className="post-avatar" />
+              </Link>
+            ) : (
+              <Link to={`/profile/${post.author?._id}`}>
+                <img src={post.author?.imageURL} alt="User avatar" className="post-avatar" />
+              </Link>
+            )}
+            
+            <div className="post-info">
+              {post.group && !isInsideGroup ? (
+                <>
+                  <div className="post-group-name">{post.group.name}</div>
+                  <div className="post-author-name group-author">
+                    {post.author?.firstName} {post.author?.lastName}
+                  </div>
+                </>
+              ) : (
+                <div className="post-author-name">
+                  {post.author?.firstName} {post.author?.lastName}
+                </div>
+              )}
+              <div className="post-time">
+                {formatDistanceToNow(new Date(post?.createdAt), { addSuffix: true })}
+              </div>
+            </div>
+          </div>
+
+          {post.content && <div className="post-text">{post.content}</div>}
+
+          {(post.imageUrls?.length > 0 || post.videoUrls?.length > 0) && (
+            <div className="post-media-grid">
+              {post.imageUrls.map((url, i) => (
+                <img key={`img-${i}`} src={url} alt="Post media" className="post-media-item" />
+              ))}
+              {post.videoUrls.map((url, i) => (
+                <video key={`vid-${i}`} src={url} controls className="post-media-item" />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Stats */}
+      <div className="post-stats">
+        <span className="likes-count">{likes} likes</span>
+        <span className="comments-count" onClick={() => setShowComments(true)} style={{ cursor: "pointer" }}>
+          {post.commentsCount} comments
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="post-actions">
+        <button className="action-btn" onClick={handleLike}>
+          <FaThumbsUp className={`icon ${isLiked ? "liked-icon" : ""}`} />
+          <span className={isLiked ? "liked-text" : ""}>Like</span>
+        </button>
+        <button className="action-btn" onClick={() => setShowComments(true)}>
+          <FaCommentAlt className="icon" />
+          <span>Comment</span>
+        </button>
+        <button className="action-btn" onClick={() => setShowShareModal(true)}>
+          <FaShare className="icon" />
+          <span>Share</span>
+        </button>
+      </div>
+    </div>
 
       {showComments && createPortal(
         <div className="comment-modal-overlay" onClick={() => setShowComments(false)}>
@@ -489,20 +568,20 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
               <div className="comments-list">
                 {comments.map((c, index) => (
                 <div
-                  key={c._id}
+                  key={c?._id}
                   className="comment-item"
                   ref={index === comments.length - 1 ? lastCommentRef : null}>
-                  <img src={c.user.imageURL} alt="Avatar" className="comment-avatar" />
+                  <img src={c.user?.imageURL} alt="Avatar" className="comment-avatar" />
                   <div className="comment-body">
                     <div className="comment-author">
-                      <strong>{c.user.firstName} {c.user.lastName}</strong>
+                      <strong>{c.user?.firstName} {c.user?.lastName}</strong>
                     </div>
                     <div className="comment-time">
-                      {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(c?.createdAt), { addSuffix: true })}
                     </div>
                     <div className="comment-text">{c.text}</div>
-                    {c.user._id === user._id && (
-                      <button className="delete-comment-btn" onClick={() => handleDeleteComment(c._id)}>
+                    {c.user?._id === user?._id && (
+                      <button className="delete-comment-btn" onClick={() => handleDeleteComment(c?._id)}>
                         <FaTrash />
                       </button>
                     )}
@@ -539,7 +618,9 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
               <button className="close-btn" onClick={() => setShowShareModal(false)}><FaTimes /></button>
             </div>
             <div className="modal-content">
-              <CreatePostBox sharedFromId={post._id} onPostCreated={() => setShowShareModal(false)} />
+              {!isInsideGroup && (
+                <CreatePostBox sharedFromId={post?._id} onPostCreated={() => setShowShareModal(false)} />
+              )}
               <div className="share-buttons">
                 <button onClick={handleCopyLink}><FaLink /> Copy Link</button>
                 <button onClick={handleWhatsappShare}><FaWhatsapp /> WhatsApp</button>
@@ -566,7 +647,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
                 initialVideos={post.videoUrls}
                 groupId={post.group?._id}
                 isEditMode={true}
-                postId={post._id}
+                postId={post?._id}
                 initialPrivacy={post.isPublic ? "Public" : "Private"}
                 onPostCreated={handlePostUpdated}
               />
@@ -601,7 +682,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
                     className={`friend-item ${selectedFriendIds.includes(friend.id) ? "selected" : ""}`}
                     onClick={() => toggleFriendSelection(friend.id)}
                   >
-                    <img src={friend.imageURL} alt="avatar" className="comment-avatar" />
+                    <img src={friend?.imageURL} alt="avatar" className="comment-avatar" />
                     <span>{friend.name}</span>
                     {selectedFriendIds.includes(friend.id) && <FaCheck className="check-icon" />}
                   </div>

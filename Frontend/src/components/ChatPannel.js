@@ -248,7 +248,6 @@ export default function ChatPanel({ setUnreadMessages, openConversationId , setO
               onClick={() => handleClick(c)}
             >
               <div className="avatar-wrapper">
-                {console.log("friend", friend)}
                 <img src={friend.imageURL} alt="avatar" className="avatar" />
                 <div className="type-icon">
                   {isUnread ? <FaEnvelope /> : <FaEnvelopeOpenText />}

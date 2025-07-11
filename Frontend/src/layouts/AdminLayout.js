@@ -1,11 +1,16 @@
 import { Outlet } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import "../css/UserLayout.css";
 
 export default function AdminLayout() {
   return (
     <>
       <Navbar role="admin" />
-      <main><Outlet /></main>
+      <div className="layout-container">
+        <div className="layout-main">
+            <Outlet />
+        </div>
+      </div>
     </>
   );
 }

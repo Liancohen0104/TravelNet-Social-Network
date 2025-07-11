@@ -100,6 +100,10 @@ exports.requestToJoinGroup = async (req, res) => {
     const { groupId } = req.params;
     const userId = req.user.id;
 
+    if (req.user.role === "admin") {
+      return res.status(403).json({ error: "Admins cannot join groups" });
+    }
+
     const group = await Group.findById(groupId);
     if (!group) return res.status(404).json({ error: 'Group not found' });
     if (group.isPublic) return res.status(400).json({ error: 'This is a public group' });
@@ -122,15 +126,12 @@ exports.requestToJoinGroup = async (req, res) => {
       isRead: false,
     });
 
-    // עדכון כמות ההתראות שלא נקראו של המשתמש
     await User.findByIdAndUpdate(groupCreator._id, {
       $inc: { unreadNotificationsCount: 1 }
     });
 
     const io = getIO();
-
     io.to(groupCreator._id.toString()).emit("receive-notification", notification);
-
     io.to(groupCreator._id.toString()).emit("new-group-request");
 
     res.json({ message: 'Join request sent' });
@@ -215,6 +216,10 @@ exports.joinPublicGroup = async (req, res) => {
     const { groupId } = req.params;
     const userId = req.user.id;
 
+    if (req.user.role === "admin") {
+      return res.status(403).json({ error: "Admins cannot join groups" });
+    }
+
     const group = await Group.findById(groupId);
     if (!group) return res.status(404).json({ error: 'Group not found' });
     if (!group.isPublic) return res.status(400).json({ error: 'This group is private' });
@@ -274,8 +279,19 @@ exports.getGroupDetails = async (req, res) => {
 // חברי קבוצה
 exports.getGroupMembers = async (req, res) => {
   try {
+    const userId = req.user.id;
+    const isAdmin = req.user.role === "admin";
+
     const group = await Group.findById(req.params.groupId).populate('members', 'firstName lastName imageURL');
+
     if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    // אם הקבוצה פרטית, המשתמש לא חבר בה ואינו אדמין – חסום גישה
+    const isMember = group.members.some(member => member._id.toString() === userId);
+    if (!group.isPublic && !isMember && !isAdmin) {
+      return res.status(403).json({ error: 'Access denied – not a group member' });
+    }
+
     res.json(group.members);
   } catch (err) {
     console.error('Get group members error:', err);
@@ -290,8 +306,10 @@ exports.getGroupPosts = async (req, res) => {
     const group = await Group.findById(groupId);
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
-    // בדיקה שהמשתמש חבר בקבוצה אם היא פרטית
-    if (!group.isPublic && !group.members.includes(req.user.id)) {
+    const isAdmin = req.user.role === 'admin';
+
+    // אם הקבוצה פרטית והמשתמש לא חבר ואינו אדמין – חסום
+    if (!group.isPublic && !group.members.includes(req.user.id) && !isAdmin) {
       return res.status(403).json({ error: 'Access denied – not a group member' });
     }
 
@@ -300,6 +318,8 @@ exports.getGroupPosts = async (req, res) => {
 
     const posts = await Post.find({ group: groupId })
       .populate('author', 'firstName lastName imageURL')
+      .populate('sharedFrom', 'content imageUrl author createdAt')
+      .populate('sharedFrom.author', 'firstName lastName imageURL')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -311,30 +331,42 @@ exports.getGroupPosts = async (req, res) => {
   }
 };
 
-// חיפוש קבוצות לפי שם או תיאור
+// חיפוש קבוצות לפי שם תיאור וציבורי או פרטי
 exports.searchGroups = async (req, res) => {
   try {
-    const query = req.query.query;
+    const { query, name, description, isPublic } = req.query;
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
 
-    if (!query) {
-      return res.status(400).json({ error: 'Missing search query' });
+    const filter = {};
+
+    if (query) {
+      filter.$or = [
+        { name: { $regex: query, $options: "i" } },
+        { description: { $regex: query, $options: "i" } }
+      ];
     }
 
-    const groups = await Group.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } }
-      ]
-    })
-    .select('name description imageURL isPublic members')
-    .skip(skip)
-    .limit(limit);
+    if (name) {
+      filter.name = { $regex: name, $options: "i" };
+    }
+
+    if (description) {
+      filter.description = { $regex: description, $options: "i" };
+    }
+
+    if (isPublic === "true" || isPublic === "false") {
+      filter.isPublic = isPublic === "true";
+    }
+
+    const groups = await Group.find(filter)
+      .select("name description imageURL isPublic members")
+      .skip(skip)
+      .limit(limit);
 
     res.json(groups);
   } catch (err) {
-    console.error('Search groups error:', err);
-    res.status(500).json({ error: 'Failed to search groups' });
+    console.error("Search groups error:", err);
+    res.status(500).json({ error: "Failed to search groups" });
   }
 };

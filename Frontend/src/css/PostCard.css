@@ -6,6 +6,7 @@
   overflow: hidden;
   border: 1px solid #e2e8f0;
   transition: all 0.3s ease-in-out;
+  position: relative;
 }
 
 .post-header {
@@ -378,6 +379,7 @@
 .comment-item {
   display: flex;
   gap: 12px;
+  margin-bottom: 16px; 
 }
 
 .comment-avatar {
@@ -717,6 +719,7 @@
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 10; 
 }
 
 .menu-button {
@@ -854,4 +857,49 @@
   border-top: 1px solid #e2e8f0;
   margin-top: 16px;
 }
+
+.shared-post-wrapper {
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9f9f9;
+  margin-bottom: 16px;
+}
+
+.shared-post-info {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.shared-post-info .shared-text {
+  color: #555;
+  font-style: italic;
+  margin-left: 5px;
+}
+
+.original-post-box {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  background: white;
+}
+
+.original-post-author {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.original-post-text {
+  padding-left: 32px;
+}
+
+.shared-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 0px 0;
+}
+
 

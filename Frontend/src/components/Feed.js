@@ -3,6 +3,7 @@ import usersApi from "../services/usersApi";
 import groupApi from "../services/groupApi";
 import PostCard from "./PostCard";
 import CreatePostBox from "./CreatePostBox";
+import { useAuth } from "../contexts/AuthContext";
 import "../css/Feed.css";
 
 export default function Feed({ userId = null, groupId = null, canCreatePost = true }) {
@@ -12,6 +13,7 @@ export default function Feed({ userId = null, groupId = null, canCreatePost = tr
   const [page, setPage] = useState(0);
   const observer = useRef(null);
   const [error, setError] = useState("");
+  const { user: authUser } = useAuth();
 
   const handleError = (err) => {
     if (err.responseJSON?.error) {
@@ -95,8 +97,8 @@ export default function Feed({ userId = null, groupId = null, canCreatePost = tr
   }, []);
 
   return (
-    <div className="post-list-box">
-    {canCreatePost && (
+    <div className="post-list-box"> 
+    {canCreatePost && (authUser.role !== "admin") && (
       <CreatePostBox
         onPostCreated={reloadAllPosts}
         initialGroupId={groupId || null}

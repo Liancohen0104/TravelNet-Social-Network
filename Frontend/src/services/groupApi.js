@@ -97,14 +97,15 @@ const groupApi = {
       data: { skip, limit },
     }),
 
-  // חיפוש קבוצות לפי שם או תיאור
-  searchGroups: (query, skip = 0, limit = 10) =>
-    $.ajax({
-      url: `${BASE_URL}/groups/search-groups`,
-      method: "GET",
-      headers: getAuthHeaders(),
-      data: { query, skip, limit },
-    }),
+  // חיפוש קבוצות לפי שם, תיאור וסוג (ציבורי/פרטי)
+  searchGroups: ({ query, name, description, isPublic, skip = 0, limit = 10 }) =>
+  $.ajax({
+    url: `${BASE_URL}/groups/search-groups`,
+    method: "GET",
+    headers: getAuthHeaders(),
+    data: { query, name, description, isPublic, skip, limit },
+  }),
+
 };
 
 export default groupApi;

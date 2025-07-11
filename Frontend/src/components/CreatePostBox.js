@@ -134,7 +134,7 @@ export default function CreatePostBox({
       } else if (sharedFromId) {
         await postApi.sharePostToFeed(sharedFromId, {
           content: text,
-          isPublic: true,
+          isPublic: privacy === "Public" ? "true" : "false",
           sharedToGroup: selectedGroupId || null,
         });
       } else {

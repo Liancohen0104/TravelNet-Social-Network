@@ -31,5 +31,6 @@ router.get('/my-groups-pending-requests',     verifyToken, user_controller.getMy
 router.get('/unread-messages-count',          verifyToken, user_controller.getUnreadMessages);
 router.get("/:id",                            verifyToken, user_controller.getUserById);
 router.get('/:id/friend-status',              verifyToken, user_controller.getFriendStatus);
+router.get('/isSaved/:postId',                verifyToken, user_controller.isPostSaved);
 
 module.exports = router;

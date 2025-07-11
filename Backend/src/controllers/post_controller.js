@@ -128,57 +128,108 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// מחיקת פוסט
+// מחיקת פוסט כולל ניקוי תלויות (ע"י הבעלים או ע"י אדמין)
 exports.deletePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
-    if (!post || post.author.toString() !== req.user.id) {
+    const postId = req.params.id;
+
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    const isOwner = post.author.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: 'Not authorized' });
     }
+
+    // 1. הסרת הפוסט מכל הפוסטים השמורים של משתמשים
+    await User.updateMany({}, { $pull: { savedPosts: postId } });
+
+    // 2. מחיקת פוסטים ששיתפו את הפוסט הזה
+    await Post.deleteMany({ sharedFrom: postId });
+
+    // 3. מחיקת הפוסט עצמו
     await post.deleteOne();
-    res.json({ message: 'Post deleted' });
+
+    res.json({ message: 'Post and related data deleted successfully' });
   } catch (err) {
+    console.error('Delete post error:', err);
     res.status(500).json({ error: 'Failed to delete post' });
   }
 };
 
 // חיפוש פוסטים לפי 3 קטגוריות - תוכן, יוצר, תאריך יצירה 
 exports.searchPosts = async (req, res) => {
-  const { text, fromDate, toDate, authorName } = req.query;
+  const { query, text, authorName, fromDate, toDate } = req.query;
   const skip = parseInt(req.query.skip) || 0;
   const limit = parseInt(req.query.limit) || 10;
 
-  const query = {
-    ...(text && { content: { $regex: text, $options: 'i' } }),
-    ...(fromDate && toDate && {
-      createdAt: { $gte: new Date(fromDate), $lte: new Date(toDate) },
-    }),
-  };
+  const filter = {};
 
   try {
-    if (authorName) {
-      const matchingUsers = await User.find({
+    // טווח תאריכים
+    if (fromDate && toDate) {
+      filter.createdAt = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate)
+      };
+    }
+
+    // חיפוש כללי (query) – גם בתוכן וגם בשם היוצר
+    if (query) {
+      const users = await User.find({
         $or: [
-          { firstName: { $regex: authorName, $options: 'i' } },
-          { lastName:  { $regex: authorName, $options: 'i' } }
+          { firstName: { $regex: query, $options: 'i' } },
+          { lastName: { $regex: query, $options: 'i' } }
         ]
       });
 
-      const matchingUserIds = matchingUsers.map(user => user._id);
-      query.author = { $in: matchingUserIds };
+      const userIds = users.map(u => u._id);
+
+      filter.$or = [
+        { content: { $regex: query, $options: 'i' } },
+        { author: { $in: userIds } }
+      ];
     }
 
-    const results = await Post.find(query)
-      .populate('author', 'firstName lastName')
+    // חיפוש ממוקד בתוכן
+    if (text) {
+      filter.content = { $regex: text, $options: 'i' };
+    }
+
+    // חיפוש ממוקד בשם המחבר
+    if (authorName) {
+      const users = await User.find({
+        $or: [
+          { firstName: { $regex: authorName, $options: 'i' } },
+          { lastName: { $regex: authorName, $options: 'i' } }
+        ]
+      });
+      const userIds = users.map(u => u._id);
+      filter.author = { $in: userIds };
+    }
+
+    const posts = await Post.find(filter)
+      .populate('author', 'firstName lastName imageURL')
+      .populate('group', 'name imageURL')
+      .populate({
+        path: 'sharedFrom',
+        select: 'content createdAt author',
+        populate: {
+          path: 'author',
+          select: 'firstName lastName imageURL',
+        }
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    res.json(results);
+    res.json(posts);
 
   } catch (err) {
-    console.error('Search error:', err);
-    res.status(500).json({ error: 'Search failed' });
+    console.error("Search posts error:", err);
+    res.status(500).json({ error: "Failed to search posts" });
   }
 };
 
@@ -463,6 +514,10 @@ exports.sharePostToFeed = async (req, res) => {
       return res.status(404).json({ error: 'Original post not found' });
     }
 
+    if (originalPost.group) {
+      return res.status(403).json({ error: 'You cannot share a group post' });
+    }
+
     const { content, sharedToGroup } = req.body;
 
     if (!content) {
@@ -476,12 +531,13 @@ exports.sharePostToFeed = async (req, res) => {
         return res.status(403).json({ error: 'You are not a member of this group' });
       }
     }
-
+    
     const newPost = await Post.create({
       content, // התוכן החדש של המשתף
       sharedFrom: originalPost._id,
       sharedToGroup: sharedToGroup || null,
       author: req.user.id,
+      isPublic: req.body.isPublic === 'true',
       createdAt: new Date()
     });
 
@@ -490,7 +546,7 @@ exports.sharePostToFeed = async (req, res) => {
     const preview = newPost.content.length > 80 ? newPost.content.slice(0, 100) + "..." : newPost.content;
 
     if (originalAuthor._id.toString() !== sharingUser._id.toString()) {
-      const notification = await ate({
+      const notification = await Notification.create({
         recipient: originalAuthor._id,
         sender: sharingUser._id,
         type: "share",

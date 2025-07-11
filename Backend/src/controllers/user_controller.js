@@ -190,7 +190,9 @@ exports.updateProfile = async (req, res) => {
     if (lastName !== undefined) user.lastName = lastName;
     if (bio !== undefined) user.bio = bio;
     if (location !== undefined) user.location = location;
-    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
+    if (dateOfBirth !== undefined) {
+      user.dateOfBirth = dateOfBirth.trim() === "" ? null : dateOfBirth;
+    }
 
     // אם הועלתה תמונת פרופיל חדשה
     if (req.file && req.file.path) {
@@ -252,7 +254,10 @@ exports.searchUsers = async (req, res) => {
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
 
-    const query = {};
+    const query = {
+      role: { $ne: "admin" },             // לא לכלול אדמינים
+      _id: { $ne: req.user.id },          // לא לכלול את המשתמש המחובר
+    };
 
     if (fullName) {
       const regex = new RegExp(fullName, 'i');
@@ -441,21 +446,25 @@ exports.getPersonalFeed = async (req, res) => {
 
     // מציאת פוסטים ציבוריים מהיוזר, חברים או קבוצות שהוא חבר בהן
     const posts = await Post.find({
-      isPublic: true,
-      $or: [
-        { author: userId },
-        { author: { $in: friendIds } },
-        { group: { $in: groupIds } }
-      ]
+    isPublic: true,
+    $or: [
+      { author: userId },
+      { author: { $in: friendIds } },
+      { group: { $in: groupIds } },
+      { sharedFrom: { $ne: null } } // הוספה – נרצה לראות גם פוסטים משותפים (למשל ממשתמשים חברים)
+    ]
+  })
+    .populate('author', 'firstName lastName imageURL')
+    .populate('comments.user', 'firstName lastName imageURL')
+    .populate({
+      path: 'sharedFrom',
+      select: 'content author createdAt',
+      populate: { path: 'author', select: 'firstName lastName imageURL createdAt' }
     })
-      .populate('author', 'firstName lastName imageURL')
-      .populate('comments.user', 'firstName lastName imageURL')
-      .populate('sharedFrom')
-      .populate('sharedFrom.author', 'firstName lastName imageURL')
-      .populate('group', 'name imageURL')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    .populate('group', 'name imageURL')
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
 
     res.json(posts);
   } catch (err) {
@@ -482,8 +491,14 @@ exports.getUserPosts = async (req, res) => {
 
     const posts = await Post.find(query)
       .populate('author', 'firstName lastName imageURL')
-      .populate('sharedFrom', 'content imageUrl author')
-      .populate('sharedFrom.author', 'firstName lastName imageURL')
+      .populate({
+        path: 'sharedFrom',
+        select: 'content imageUrls author createdAt',
+        populate: {
+          path: 'author',
+          select: 'firstName lastName imageURL'
+        }
+      })
       .populate('comments.user', 'firstName lastName imageURL')
       .populate('group', 'name imageURL')
       .sort({ createdAt: -1 })
@@ -559,6 +574,10 @@ exports.sendFriendRequest = async (req, res) => {
   const senderId = req.user.id;
   const receiverId = req.params.id;
 
+  if (req.user.role === "admin") {
+    return res.status(403).json({ error: "Admins cannot send friend requests" });
+  }
+
   if (senderId === receiverId) return res.status(400).json({ error: 'Cannot friend yourself' });
 
   const sender = await User.findById(senderId);
@@ -589,17 +608,12 @@ exports.sendFriendRequest = async (req, res) => {
     isRead: false,
   });
 
-  // עדכון כמות ההתראות שלא נקראו של המשתמש
   await User.findByIdAndUpdate(receiver._id, {
     $inc: { unreadNotificationsCount: 1 }
   });
 
   const io = getIO();
-
-  // שולח את ההתראה הרגילה
   io.to(receiver._id.toString()).emit("receive-notification", notification);
-
-  // שולח גם אירוע חדש של בקשת חברות כדי לעדכן את הקומפוננטה
   io.to(receiver._id.toString()).emit("new-friend-request");
 
   res.json({ message: "Friend request sent" });
@@ -879,4 +893,16 @@ exports.getFriendStatus = async (req, res) => {
   }
 
   return res.json({ status: "none" });
+};
+
+// האם פוסט שמור 
+exports.isPostSaved = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const isSaved = user.savedPosts.includes(req.params.postId);
+    res.json({ isSaved });
+  } catch (err) {
+    console.error("Failed to check saved status:", err);
+    res.status(500).json({ error: "Failed to check saved status" });
+  }
 };

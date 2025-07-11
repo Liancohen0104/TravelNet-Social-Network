@@ -222,6 +222,14 @@ const usersApi = {
     headers: getAuthHeaders(),
   }),
 
+  // בדיקת האם פוסט מסוים שמור על ידי המשתמש
+  isPostSaved: (postId) =>
+    $.ajax({
+      url: `${BASE_URL}/users/isSaved/${postId}`,
+      method: "GET",
+      headers: getAuthHeaders(),
+    }),
+
 };
 
 export default usersApi;

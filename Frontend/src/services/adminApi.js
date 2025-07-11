@@ -3,12 +3,12 @@ import { BASE_URL, getAuthHeaders } from "./apiConfig";
 
 const adminApi = {
   // שליפת כל המשתמשים שאינם אדמין
-  getAllUsers: () =>
-    $.ajax({
-      url: `${BASE_URL}/admin/users`,
-      method: "GET",
-      headers: getAuthHeaders(),
-    }),
+  getAllUsers: (skip = 0, limit = 10) =>
+  $.ajax({
+    url: `${BASE_URL}/admin/users?skip=${skip}&limit=${limit}`,
+    method: "GET",
+    headers: getAuthHeaders(),
+  }),
 
   // מחיקת משתמש
   deleteUser: (userId) =>
@@ -18,29 +18,13 @@ const adminApi = {
       headers: getAuthHeaders(),
     }),
 
-  // שליפת כל הפוסטים 
-  getAllPosts: (skip = 0, limit = 10) =>
-    $.ajax({
-      url: `${BASE_URL}/admin/posts?skip=${skip}&limit=${limit}`,
-      method: "GET",
-      headers: getAuthHeaders(),
-    }),
-
-  // מחיקת פוסט 
-  deletePost: (postId) =>
-    $.ajax({
-      url: `${BASE_URL}/admin/posts/${postId}`,
-      method: "DELETE",
-      headers: getAuthHeaders(),
-    }),
-
   // שליפת כל הקבוצות
-  getAllGroups: () =>
-    $.ajax({
-      url: `${BASE_URL}/admin/all-groups`,
-      method: "GET",
-      headers: getAuthHeaders(),
-    }),
+  getAllGroups: (skip = 0, limit = 10) =>
+  $.ajax({
+    url: `${BASE_URL}/admin/all-groups?skip=${skip}&limit=${limit}`,
+    method: "GET",
+    headers: getAuthHeaders(),
+  }),
 
   // מחיקת קבוצה 
   deleteGroupByAdmin: (groupId) =>
@@ -49,6 +33,14 @@ const adminApi = {
       method: "DELETE",
       headers: getAuthHeaders(),
     }),
+
+  getGraphStats: () =>
+  $.ajax({
+    url: `${BASE_URL}/admin/graph-stats`,
+    method: "GET",
+    headers: getAuthHeaders(),
+  }),
+
 };
 
 export default adminApi;
