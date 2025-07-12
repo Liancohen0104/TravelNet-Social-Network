@@ -13,8 +13,8 @@ router.post('/:groupId/approve-join-request/:userId',   verifyToken, groupContro
 router.delete('/:groupId/reject-join-request/:userId',  verifyToken, groupController.rejectJoinRequest);
 router.post('/:groupId/join',                           verifyToken, groupController.joinPublicGroup); // הצטרפות לקבוצה ציבורית
 router.post('/:groupId/leave',                          verifyToken, groupController.leaveGroup);
-router.get('/:groupId/me',                              groupController.getGroupDetails);
-router.get('/:groupId/members',                         groupController.getGroupMembers);
+router.get('/:groupId/me',                              verifyToken, groupController.getGroupDetails);
+router.get('/:groupId/members',                         verifyToken, groupController.getGroupMembers);
 router.get('/:groupId/posts',                           verifyToken, groupController.getGroupPosts);
 router.get('/search-groups',                            verifyToken, groupController.searchGroups);
 

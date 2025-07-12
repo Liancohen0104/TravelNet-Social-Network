@@ -112,7 +112,6 @@ export default function GroupsList() {
             </div>
             <div className="info">
               <div className="name">{group.name}</div>
-              {console.log("group", group)}
               {group.creator?._id === user?._id && (
                 <div className="status">You are the creator</div>
               )}
