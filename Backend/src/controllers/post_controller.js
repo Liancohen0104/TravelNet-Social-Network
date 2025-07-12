@@ -11,10 +11,15 @@ exports.getPostById = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
       .populate('author', 'firstName lastName imageURL')
-      .populate('sharedFrom')
+      .populate({
+        path: 'sharedFrom',
+        populate: {
+          path: 'author',
+          select: 'firstName lastName imageURL'
+        }
+      })
       .populate('comments.user', 'firstName lastName imageURL')
       .populate('comments.mentionedUsers', 'firstName lastName imageURL')
-      .populate('sharedFrom.author', 'firstName lastName imageURL')
       .populate('group', 'name imageURL');
 
     if (!post) return res.status(404).json({ error: 'Post not found' });
@@ -129,28 +134,28 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// מחיקת פוסט כולל ניקוי תלויות (ע"י הבעלים או ע"י אדמין)
+// מחיקת פוסט כולל ניקוי תלויות (ע"י הבעלים או ע"י אדמין או ע"י יוצר קבוצה)
 exports.deletePost = async (req, res) => {
   try {
     const postId = req.params.id;
-
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
     const isOwner = post.author.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
+    const groupCreatorCanDelete = async (userId, post) => {
+      if (!post.group) return false;
+      const group = await Group.findById(post.group);
+      return group && group.creator.toString() === userId.toString();
+    };
+    const isGroupCreator = await groupCreatorCanDelete(req.user.id, post);
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isAdmin && !isGroupCreator) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    // 1. הסרת הפוסט מכל הפוסטים השמורים של משתמשים
     await User.updateMany({}, { $pull: { savedPosts: postId } });
-
-    // 2. מחיקת פוסטים ששיתפו את הפוסט הזה
     await Post.deleteMany({ sharedFrom: postId });
-
-    // 3. מחיקת הפוסט עצמו
     await post.deleteOne();
 
     res.json({ message: 'Post and related data deleted successfully' });

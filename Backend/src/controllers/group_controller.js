@@ -286,7 +286,8 @@ exports.getGroupMembers = async (req, res) => {
     const userId = req.user.id;
     const isAdmin = req.user.role === "admin";
 
-    const group = await Group.findById(req.params.groupId).populate('members', 'firstName lastName imageURL');
+    const group = await Group.findById(req.params.groupId)
+    .populate('members', 'firstName lastName imageURL location dateOfBirth')
 
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
@@ -322,8 +323,22 @@ exports.getGroupPosts = async (req, res) => {
 
     const posts = await Post.find({ group: groupId })
       .populate('author', 'firstName lastName imageURL')
-      .populate('sharedFrom', 'content imageUrl author createdAt')
-      .populate('sharedFrom.author', 'firstName lastName imageURL')
+      .populate({
+        path: 'sharedFrom',
+        select: 'content imageUrl author createdAt',
+        populate: {
+          path: 'author',
+          select: 'firstName lastName imageURL'
+        }
+      })
+      .populate({
+          path: 'group',
+          select: 'name imageURL creator',
+          populate: {
+            path: 'creator',
+            select: 'firstName lastName imageURL'
+          }
+        })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -372,5 +387,70 @@ exports.searchGroups = async (req, res) => {
   } catch (err) {
     console.error("Search groups error:", err);
     res.status(500).json({ error: "Failed to search groups" });
+  }
+};
+
+// הסרת משתתף מקבוצה ע"י היוצר
+exports.removeMember = async (groupId, userIdToRemove, requesterId) => {
+  const group = await Group.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  // רק יוצר הקבוצה יכול להסיר חברים
+  if (group.creator.toString() !== requesterId.toString()) {
+    throw new Error("Only the group creator can remove members");
+  }
+
+  // לא ניתן להסיר את עצמך
+  if (userIdToRemove === requesterId.toString()) {
+    throw new Error("Creator cannot remove themselves");
+  }
+
+  // הסרת המשתמש מרשימת חברי הקבוצה
+  group.members = group.members.filter(id => id.toString() !== userIdToRemove);
+  await group.save();
+
+  // הסרת הקבוצה מרשימת הקבוצות של המשתמש
+  await User.findByIdAndUpdate(userIdToRemove, {
+    $pull: { groups: groupId }
+  });
+};
+
+// הסרת משתמש מהקבוצה ע"י היוצר
+exports.removeMemberFromGroup = async (req, res) => {
+  try {
+    const { groupId, userId } = req.params;
+    const requesterId = req.user.id;
+
+    const group = await Group.findById(groupId);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    // רק היוצר יכול להסיר חברים
+    if (group.creator.toString() !== requesterId) {
+      return res.status(403).json({ error: "Only the group creator can remove members" });
+    }
+
+    // אי אפשר להסיר את היוצר עצמו
+    if (userId === requesterId) {
+      return res.status(400).json({ error: "Creator cannot remove themselves" });
+    }
+
+    // בדיקה אם המשתמש באמת חבר בקבוצה
+    if (!group.members.includes(userId)) {
+      return res.status(400).json({ error: "User is not a member of the group" });
+    }
+
+    // הסרה מהקבוצה
+    group.members = group.members.filter(id => id.toString() !== userId);
+    await group.save();
+
+    // הסרה גם מהמשתמש
+    await User.findByIdAndUpdate(userId, {
+      $pull: { groups: groupId }
+    });
+
+    res.json({ message: "User removed from group successfully" });
+  } catch (err) {
+    console.error("Remove member error:", err);
+    res.status(500).json({ error: "Failed to remove member from group" });
   }
 };

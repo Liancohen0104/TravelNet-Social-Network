@@ -247,54 +247,64 @@ exports.getCurrentUser = async (req, res) => {
   }
 };
 
-// חיפוש משתמשים על פי 3 קטגוריות - שם, גיל, עיר מגורים
+// חיפוש משתמשים על פי חיפוש כללי או קטגוריות - שם, גיל, עיר מגורים
 exports.searchUsers = async (req, res) => {
   try {
-    const { fullName, location, minAge, maxAge } = req.query;
+    const { query, fullName, location, minAge, maxAge } = req.query;
     const skip = parseInt(req.query.skip) || 0;
     const limit = parseInt(req.query.limit) || 10;
 
-    const query = {
-      role: { $ne: "admin" },             // לא לכלול אדמינים
-      _id: { $ne: req.user.id },          // לא לכלול את המשתמש המחובר
+    const search = {
+      role: { $ne: "admin" },
     };
 
-    if (fullName) {
-      const regex = new RegExp(fullName, 'i');
-      query.$or = [
+    // חיפוש כללי
+    if (query && query.trim() !== "") {
+      const regex = new RegExp(query.trim(), 'i');
+      search.$or = [
+        { firstName: regex },
+        { lastName: regex },
+        { fullName: regex },
+        { location: regex }
+      ];
+    }
+
+    // חיפוש ממוקד לפי פילטרים
+    if (fullName && fullName.trim() !== "") {
+      const regex = new RegExp(fullName.trim(), 'i');
+      search.$or = [
         { firstName: regex },
         { lastName: regex },
         { fullName: regex }
       ];
     }
 
-    if (location) {
-      query.location = new RegExp(location, 'i');
+    if (location && location.trim() !== "") {
+      search.location = new RegExp(location.trim(), 'i');
     }
 
     if (minAge || maxAge) {
       const now = new Date();
-      const todayYear = now.getFullYear();
-      query.dateOfBirth = {};
+      const year = now.getFullYear();
+      search.dateOfBirth = {};
 
       if (minAge) {
-        const maxBirthYear = todayYear - parseInt(minAge);
-        query.dateOfBirth.$lte = new Date(`${maxBirthYear}-12-31`);
+        const maxBirthYear = year - parseInt(minAge);
+        search.dateOfBirth.$lte = new Date(`${maxBirthYear}-12-31`);
       }
 
       if (maxAge) {
-        const minBirthYear = todayYear - parseInt(maxAge);
-        query.dateOfBirth.$gte = new Date(`${minBirthYear}-01-01`);
+        const minBirthYear = year - parseInt(maxAge);
+        search.dateOfBirth.$gte = new Date(`${minBirthYear}-01-01`);
       }
     }
 
-    const users = await User.find(query)
+    const users = await User.find(search)
       .select('-password -resetPasswordToken -resetPasswordExpires')
       .skip(skip)
       .limit(limit);
 
     res.json({ users });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -444,29 +454,39 @@ exports.getPersonalFeed = async (req, res) => {
     const friendIds = user.friends?.map(friend => friend._id) || [];
     const groupIds = user.groups?.map(group => group._id) || [];
 
-    // מציאת פוסטים ציבוריים מהיוזר, חברים או קבוצות שהוא חבר בהן
+    // בניית תנאי OR
+    const conditions = [
+      { author: userId },                       // פוסטים שלי
+      { author: { $in: friendIds } },          // פוסטים של חברים
+      { group: { $in: groupIds } },            // פוסטים מקבוצות
+      {
+        // שיתופים – רק אם המשתף הוא אני או חבר שלי
+        sharedFrom: { $ne: null },
+        author: { $in: [userId, ...friendIds] }
+      }
+    ];
+
     const posts = await Post.find({
-    isPublic: true,
-    $or: [
-      { author: userId },
-      { author: { $in: friendIds } },
-      { group: { $in: groupIds } },
-      { sharedFrom: { $ne: null } } // הוספה – נרצה לראות גם פוסטים משותפים (למשל ממשתמשים חברים)
-    ]
-  })
-    .populate('author', 'firstName lastName imageURL')
-    .populate('comments.user', 'firstName lastName imageURL')
-    .populate({
-      path: 'sharedFrom',
-      select: 'content author createdAt',
-      populate: { path: 'author', select: 'firstName lastName imageURL createdAt' }
+      isPublic: true,
+      $or: conditions
     })
-    .populate('group', 'name imageURL')
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+      .populate('author', 'firstName lastName imageURL')
+      .populate('comments.user', 'firstName lastName imageURL')
+      .populate({
+        path: 'sharedFrom',
+        select: 'content author imageUrls videoUrls createdAt',
+        populate: {
+          path: 'author',
+          select: 'firstName lastName imageURL'
+        }
+      })
+      .populate('group', 'name imageURL')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
     res.json(posts);
+
   } catch (err) {
     console.error('Public feed error:', err);
     res.status(500).json({ error: 'Failed to load personal feed' });

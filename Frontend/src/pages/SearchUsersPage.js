@@ -44,18 +44,19 @@ export default function SearchUsersPage() {
       };
 
       // אם המשתמש מילא שדות פילטר – נעדיף אותם
-      if (
-        filters.fullName ||
-        filters.location ||
-        filters.minAge ||
-        filters.maxAge
-      ) {
+      const anyFilterFilled =
+        filters.fullName.trim() !== "" ||
+        filters.location.trim() !== "" ||
+        filters.minAge !== "" ||
+        filters.maxAge !== "";
+
+      if (anyFilterFilled) {
         searchParams.fullName = filters.fullName;
         searchParams.location = filters.location;
         searchParams.minAge = filters.minAge;
         searchParams.maxAge = filters.maxAge;
-      } else {
-        searchParams.fullName = searchQuery;
+      } else if (searchQuery.trim() !== "") {
+        searchParams.query = searchQuery.trim(); 
       }
 
       const res = await usersApi.searchUsers(searchParams);

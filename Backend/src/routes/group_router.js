@@ -17,5 +17,6 @@ router.get('/:groupId/me',                              verifyToken, groupContro
 router.get('/:groupId/members',                         verifyToken, groupController.getGroupMembers);
 router.get('/:groupId/posts',                           verifyToken, groupController.getGroupPosts);
 router.get('/search-groups',                            verifyToken, groupController.searchGroups);
+router.delete("/:groupId/remove-member/:userId",        verifyToken, groupController.removeMemberFromGroup);
 
 module.exports = router;

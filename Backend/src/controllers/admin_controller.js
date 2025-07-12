@@ -229,18 +229,66 @@ exports.getGraphStats = async (req, res) => {
     // 3. טופ 5 יוזרים הכי פעילים
     const topActiveUsers = await User.aggregate([
       {
+        $match: { role: { $ne: "admin" } }
+      },
+      {
+        $lookup: {
+          from: "posts",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$author", "$$userId"] }
+              }
+            },
+            {
+              $project: {
+                likesCount: { $size: { $ifNull: ["$likes", []] } },
+                commentsCount: {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ["$comments", []] },
+                      as: "comment",
+                      cond: { $eq: ["$$comment.user", "$$userId"] }
+                    }
+                  }
+                },
+                isShare: { $cond: [{ $ifNull: ["$sharedFrom", false] }, 1, 0] }
+              }
+            }
+          ],
+          as: "userPosts"
+        }
+      },
+      {
         $project: {
           name: { $concat: ["$firstName", " ", "$lastName"] },
+          totalPosts: { $size: "$userPosts" },
+          totalComments: {
+            $sum: "$userPosts.commentsCount"
+          },
+          totalLikes: {
+            $sum: "$userPosts.likesCount"
+          },
+          totalShares: {
+            $sum: "$userPosts.isShare"
+          },
+        }
+      },
+      {
+        $addFields: {
           activityScore: {
             $add: [
-              { $size: { $ifNull: ["$posts", []] } },
-              { $size: { $ifNull: ["$comments", []] } },
-            ],
-          },
-        },
+              { $multiply: [3, "$totalPosts"] },
+              { $multiply: [2, "$totalComments"] },
+              { $multiply: [1, "$totalLikes"] },
+              { $multiply: [2, "$totalShares"] }
+            ]
+          }
+        }
       },
       { $sort: { activityScore: -1 } },
-      { $limit: 5 },
+      { $limit: 5 }
     ]);
 
     // 4. התפלגות קבוצות – פרטיות מול ציבוריות
@@ -294,8 +342,10 @@ exports.getGraphStats = async (req, res) => {
       groupTypes,
       postsPerMonth,
     });
+
   } catch (err) {
     console.error("Failed to get graph stats:", err);
     res.status(500).json({ error: "Failed to fetch statistics" });
   }
 };
+

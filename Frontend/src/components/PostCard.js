@@ -37,6 +37,8 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaved, setIsSaved] = useState(false);
 
+  console.log("post",post)
+
   useEffect(() => {
     const checkSaved = async () => {
       try {
@@ -423,7 +425,11 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
                 )}
               </>
             )}
-            {(post.author?._id === user?._id || user.role === "admin") && (
+            {(
+              post.author?._id === user?._id ||
+              user.role === "admin" ||
+              (post.group?.creator?._id === user?._id)
+            ) && (
               <button onClick={handleDeletePost}><FaTrashAlt /> Delete Post</button>
             )}
            </>
@@ -456,28 +462,28 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
           {/* הפוסט המקורי שבתוך השיתוף */}
           <div className="shared-post-box">
             <div className="post-header">
-              <Link to={`/profile/${post.sharedFrom.author?._id}`}>
-                <img src={post.sharedFrom.author?.imageURL} alt="Avatar" className="post-avatar" />
+              <Link to={`/profile/${post.sharedFrom?.author?._id}`}>
+                <img src={post.sharedFrom?.author?.imageURL} alt="Avatar" className="post-avatar" />
               </Link>
               <div className="post-info">
                 <div className="post-author-name">
-                  {post.sharedFrom.author?.firstName} {post.sharedFrom.author?.lastName}
+                  {post.sharedFrom?.author?.firstName} {post.sharedFrom?.author?.lastName}
                 </div>
                 <div className="post-time">
                  {post.sharedFrom?.createdAt
-                  ? formatDistanceToNow(new Date(post.sharedFrom.createdAt), { addSuffix: true }) : ""}
+                  ? formatDistanceToNow(new Date(post.sharedFrom?.createdAt), { addSuffix: true }) : ""}
                 </div>
               </div>
             </div>
-            {post.sharedFrom.content && (
-              <div className="post-text">{post.sharedFrom.content}</div>
+            {post.sharedFrom?.content && (
+              <div className="post-text">{post.sharedFrom?.content}</div>
             )}
-            {(post.sharedFrom.imageUrls?.length > 0 || post.sharedFrom.videoUrls?.length > 0) && (
+            {(post.sharedFrom?.imageUrls?.length > 0 || post.sharedFrom?.videoUrls?.length > 0) && (
               <div className="post-media-grid">
-                {post.sharedFrom.imageUrls.map((url, i) => (
+                {post.sharedFrom?.imageUrls?.map((url, i) => (
                   <img key={`img-${i}`} src={url} alt="Post media" className="post-media-item" />
                 ))}
-                {post.sharedFrom.videoUrls.map((url, i) => (
+                {post.sharedFrom?.videoUrls?.map((url, i) => (
                   <video key={`vid-${i}`} src={url} controls className="post-media-item" />
                 ))}
               </div>
@@ -523,10 +529,10 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
 
           {(post.imageUrls?.length > 0 || post.videoUrls?.length > 0) && (
             <div className="post-media-grid">
-              {post.imageUrls.map((url, i) => (
+              {post.imageUrls?.map((url, i) => (
                 <img key={`img-${i}`} src={url} alt="Post media" className="post-media-item" />
               ))}
-              {post.videoUrls.map((url, i) => (
+              {post.videoUrls?.map((url, i) => (
                 <video key={`vid-${i}`} src={url} controls className="post-media-item" />
               ))}
             </div>
@@ -620,7 +626,7 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
               <button className="close-btn" onClick={() => setShowShareModal(false)}><FaTimes /></button>
             </div>
             <div className="modal-content">
-              {!isInsideGroup && (
+              {!isInsideGroup && !post.group && (
                 <CreatePostBox sharedFromId={post?._id} onPostCreated={() => setShowShareModal(false)} />
               )}
               <div className="share-buttons">

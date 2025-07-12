@@ -39,6 +39,13 @@ export default function GroupProfilePage() {
     isPublic: true,
   });
 
+  const [advancedFilters, setAdvancedFilters] = useState({
+    fullName: "",
+    location: "",
+    minAge: "",
+    maxAge: "",
+  });
+
   useEffect(() => {
     async function fetchGroup() {
       try {
@@ -166,6 +173,17 @@ export default function GroupProfilePage() {
       window.location.reload();
     } catch (err) {
       alert(err.response?.data?.error || "Error updating group");
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    if (!window.confirm("Are you sure you want to remove this member from the group?")) return;
+    try {
+      await groupApi.removeMemberFromGroup(groupId, memberId);
+      setMembers((prev) => prev.filter((m) => m._id !== memberId));
+      alert("Member removed successfully");
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to remove member");
     }
   };
 
@@ -342,33 +360,100 @@ export default function GroupProfilePage() {
                 </button>
               </div>
               <div className="modal-body">
-                <input
-                  type="text"
-                  className="search-input-modal"
-                  placeholder="Search members..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {members
-                .filter((m) =>
-                    `${m.firstName} ${m.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((m) => (
-                    <Link
-                    to={`/profile/${m._id}`}
-                    key={m._id}
-                    className="friend-item"
-                    style={{ textDecoration: "none", color: "inherit" }}
-                    onClick={() => setShowMembersModal(false)} // סגור את המודל בלחיצה
-                    >
-                    <img
-                        src={m.imageURL}
-                        alt="avatar"
-                        className="comment-avatar"
+                {isCreator ? (
+                  <div className="advanced-filters">
+                    <input
+                      type="text"
+                      placeholder="Search by name"
+                      value={advancedFilters.fullName}
+                      onChange={(e) => setAdvancedFilters((prev) => ({ ...prev, fullName: e.target.value }))}
                     />
-                    <span>{m.firstName} {m.lastName}</span>
-                    </Link>
-                ))}
+                    <input
+                      type="text"
+                      placeholder="Search by location"
+                      value={advancedFilters.location}
+                      onChange={(e) => setAdvancedFilters((prev) => ({ ...prev, location: e.target.value }))}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Min Age"
+                      value={advancedFilters.minAge}
+                      onChange={(e) => setAdvancedFilters((prev) => ({ ...prev, minAge: e.target.value }))}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max Age"
+                      value={advancedFilters.maxAge}
+                      onChange={(e) => setAdvancedFilters((prev) => ({ ...prev, maxAge: e.target.value }))}
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    className="search-input-modal"
+                    placeholder="Search members..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                )}
+                {members
+                  .filter((m) => {
+                    if (!isCreator) {
+                      return `${m.firstName} ${m.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+                    }
+
+                    const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
+                    const location = m.location?.toLowerCase() || "";
+                    const dob = m.dateOfBirth ? new Date(m.dateOfBirth) : null;
+
+                    const now = new Date();
+                    const age = dob ? now.getFullYear() - dob.getFullYear() -
+                      (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0) : null;
+
+                    const matchesName = fullName.includes(advancedFilters.fullName.toLowerCase());
+                    const matchesLocation = location.includes(advancedFilters.location.toLowerCase());
+                    const matchesMinAge = !advancedFilters.minAge || (age !== null && age >= Number(advancedFilters.minAge));
+                    const matchesMaxAge = !advancedFilters.maxAge || (age !== null && age <= Number(advancedFilters.maxAge));
+
+                    return matchesName && matchesLocation && matchesMinAge && matchesMaxAge;
+                  })
+
+                  .map((m) => (
+                    <div key={m._id} className="friend-item-with-delete">
+                      <Link
+                        to={`/profile/${m._id}`}
+                        className="friend-item"
+                        style={{ textDecoration: "none", color: "inherit" }}
+                        onClick={() => setShowMembersModal(false)}
+                      >
+                        <img
+                          src={m.imageURL}
+                          alt="avatar"
+                          className="comment-avatar"
+                        />
+                        <div className="group-member-info">
+                          <span><strong>{m.firstName} {m.lastName}</strong></span>
+                          {m.location && <span className="location">{m.location}</span>}
+                          {m.dateOfBirth && (
+                            <span className="dob">
+                              {new Date(m.dateOfBirth).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+
+                      {/* כפתור מחיקה – רק ליוצר */}
+                      {isCreator && m._id !== user._id && (
+                        <button
+                          className="remove-member-btn"
+                          onClick={() => handleRemoveMember(m._id)}
+                          title="Remove member"
+                        >
+                          <FaTrashAlt />
+                        </button>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           </div>,

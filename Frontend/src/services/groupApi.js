@@ -106,6 +106,14 @@ const groupApi = {
     data: { query, name, description, isPublic, skip, limit },
   }),
 
+  // הסרת משתמש מהקבוצה ע"י היוצר
+  removeMemberFromGroup: (groupId, userId) =>
+    $.ajax({
+      url: `${BASE_URL}/groups/${groupId}/remove-member/${userId}`,
+      method: "DELETE",
+      headers: getAuthHeaders(),
+  }),
+
 };
 
 export default groupApi;
