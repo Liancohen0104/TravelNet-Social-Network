@@ -232,8 +232,8 @@ export default function GroupProfilePage() {
       </div>
 
       <div className="profile-bottom">
-        {group.isPublic && <Feed groupId={groupId} />}
-        {!group.isPublic && (isMember || user?.role === "admin") && <Feed groupId={groupId} canCreatePost={isMember} />}
+        {group.isPublic && <Feed key={groupId} groupId={groupId} />}
+        {!group.isPublic && (isMember || user?.role === "admin") && <Feed key={groupId} groupId={groupId} canCreatePost={isMember} />}
       </div>
 
       {/* מודל עריכת קבוצה */}

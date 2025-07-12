@@ -35,14 +35,19 @@ export default function Feed({ userId = null, groupId = null, canCreatePost = tr
       let res;
       if (groupId) {
         res = await groupApi.getGroupPosts(groupId, (pageToLoad - 1) * 5, 5);
-    } else if (userId) {
+      } else if (userId) {
         res = await usersApi.getUserPosts(userId, (pageToLoad - 1) * 5, 5);
-    } else {
+      } else {
         res = await usersApi.getPersonalFeed(pageToLoad, 5);
-    }
+      }
+
+      const enriched = res.map(post => ({
+        ...post,
+        isLiked: post.likes?.includes(authUser._id)
+      }));
 
       if (res.length < 5) setHasMore(false);
-      setPosts((prev) => [...prev, ...res]);
+      setPosts((prev) => [...prev, ...enriched]);
       setPage((prev) => prev + 1);
     } catch (err) {
       handleError(err);
@@ -61,14 +66,19 @@ export default function Feed({ userId = null, groupId = null, canCreatePost = tr
     try {
       let res;
       if (groupId) {
-        res = await groupApi.getGroupPosts(groupId,0 , 5);
-    } else if (userId) {
-        res = await usersApi.getUserPosts(userId, 0 , 5);
-    } else {
+        res = await groupApi.getGroupPosts(groupId, 0, 5);
+      } else if (userId) {
+        res = await usersApi.getUserPosts(userId, 0, 5);
+      } else {
         res = await usersApi.getPersonalFeed(1, 5);
-    }
+      }
 
-      setPosts(res);
+      const enriched = res.map(post => ({
+        ...post,
+        isLiked: post.likes?.includes(authUser._id)
+      }));
+
+      setPosts(enriched);
       setPage(1);
       if (res.length < 5) setHasMore(false);
     } catch (err) {

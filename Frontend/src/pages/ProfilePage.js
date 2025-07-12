@@ -145,11 +145,7 @@ export default function ProfilePage() {
     if (selectedImage) {
       formData.append("image", selectedImage);
     }
-
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}: ${value}`);
-    }
-
+    
     try {
       await usersApi.updateProfile(formData);
       alert("Profile updated!");

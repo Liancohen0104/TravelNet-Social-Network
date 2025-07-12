@@ -503,7 +503,9 @@ const PostCard = forwardRef(({ post, onPostDeleted, onPostUpdated, isInsideGroup
                 <>
                   <div className="post-group-name">{post.group.name}</div>
                   <div className="post-author-name group-author">
-                    {post.author?.firstName} {post.author?.lastName}
+                    <Link to={`/profile/${post.author?._id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                      {post.author?.firstName} {post.author?.lastName}
+                    </Link>
                   </div>
                 </>
               ) : (

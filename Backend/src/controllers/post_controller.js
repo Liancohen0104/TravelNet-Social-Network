@@ -14,7 +14,8 @@ exports.getPostById = async (req, res) => {
       .populate('sharedFrom')
       .populate('comments.user', 'firstName lastName imageURL')
       .populate('comments.mentionedUsers', 'firstName lastName imageURL')
-      .populate('sharedFrom.author', 'firstName lastName imageURL');
+      .populate('sharedFrom.author', 'firstName lastName imageURL')
+      .populate('group', 'name imageURL');
 
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
@@ -61,11 +62,11 @@ exports.createPost = async (req, res) => {
       for (const memberId of membersToNotify) {
         const notification = await Notification.create({
           recipient: memberId,
-          sender: author._id,
+          sender: groupObj._id,
           type: "group_post",
           message: `${author.fullName} posted in the group "${groupObj.name}": ${preview}`,
-          link: `/groups/${groupObj._id}/posts`,
-          imageURL: author.imageURL,
+          link: `/groups/${groupObj._id}`,
+          image: groupObj.imageURL,
           isRead: false,
         });
 

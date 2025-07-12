@@ -553,7 +553,7 @@ exports.getSavedPosts = async (req, res) => {
     const posts = await Post.find({ _id: { $in: user.savedPosts } })
       .populate('author', 'firstName lastName imageURL')
       .populate('comments.user', 'firstName lastName imageURL')
-      .populate('group', 'name')
+      .populate('group', 'name imageURL')
       .populate({
         path: 'sharedFrom',
         populate: { path: 'author', select: 'firstName lastName imageURL' }
@@ -728,7 +728,7 @@ exports.getPendingRequests = async (req, res) => {
   res.json(user.friendRequestsReceived);
 };
 
-// קבוצות שהמשתמש חבר בהן
+// קבוצות שהמשתמש חבר בהן - הקבוצות שהוא יצר מופיעות ראשונות
 exports.getMyGroups = async (req, res) => {
   try {
     const skip = parseInt(req.query.skip) || 0;
@@ -736,11 +736,26 @@ exports.getMyGroups = async (req, res) => {
 
     const user = await User.findById(req.user.id).populate({
       path: 'groups',
-      select: 'name imageURL',
-      options: { skip, limit }
+      select: 'name imageURL creator',
+      populate: {
+        path: 'creator',
+        select: '_id firstName lastName'
+      }
     });
 
-    res.json(user.groups);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // מיון: קודם קבוצות שהוא יצר
+    const sortedGroups = user.groups.sort((a, b) => {
+      const aIsCreator = a.creator?._id?.toString() === req.user.id;
+      const bIsCreator = b.creator?._id?.toString() === req.user.id;
+      return aIsCreator === bIsCreator ? 0 : aIsCreator ? -1 : 1;
+    });
+
+    // החזר את העמוד הרצוי לפי skip ו-limit
+    const paginatedGroups = sortedGroups.slice(skip, skip + limit);
+
+    res.json(paginatedGroups);
   } catch (err) {
     console.error('Get my groups error:', err);
     res.status(500).json({ error: 'Failed to fetch user groups' });

@@ -41,21 +41,25 @@ exports.updateGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
     const { name, description, isPublic } = req.body;
-    let imageURL;
-    
+
     const group = await Group.findById(groupId);
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
     // רק יוצר הקבוצה יכול לערוך
-    if (group.creator.toString() !== req.user.id)
+    if (group.creator.toString() !== req.user.id) {
       return res.status(403).json({ error: 'Only the creator can update the group' });
+    }
 
-    // עדכון שדות רק אם נשלחו
-    group.name = name || group.name;
-    group.description = description || group.description;
-    if (typeof isPublic === 'boolean') group.isPublic = isPublic;
-    group.imageURL = imageURL || group.imageURL;
+    // עדכון שדות
+    if (name !== undefined) group.name = name;
+    if (description !== undefined) group.description = description;
 
+    // תיקון: המרה ל-boolean אם צריך
+    if (isPublic !== undefined) {
+      group.isPublic = isPublic === "true" || isPublic === true;
+    }
+
+    // תמונה חדשה?
     if (req.file && req.file.path) {
       group.imageURL = req.file.path;
     }

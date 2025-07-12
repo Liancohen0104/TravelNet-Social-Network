@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -6,9 +6,9 @@ import {
   FaShareAlt, FaEnvelope, FaTimes, FaThumbsUp
 } from "react-icons/fa";
 import notificationApi from "../services/notificationApi";
-import "../css/UserLayout.css";
 import postApi from "../services/postApi";
-import PostCard from "../components/PostCard"
+import PostCard from "../components/PostCard";
+import "../css/UserLayout.css";
 
 const typeIcons = {
   friend_request: <FaUserPlus />,
@@ -22,31 +22,16 @@ const typeIcons = {
   friend_approved: <FaCheck />,
 };
 
-export default function Notifications({ unreadNotifications, setUnreadNotifications, notifications, setNotifications }) {
+export default function Notifications({ setUnreadNotifications, notifications, setNotifications }) {
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [singlePost, setSinglePost] = useState(null);
   const [showSinglePostModal, setShowSinglePostModal] = useState(false);
+  const observer = useRef();
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
-
-  // טעינה ראשונית
-  useEffect(() => {
-    fetchNotifications(1);
-  }, []);
-
-  // טעינה בגלילה
-  useEffect(() => {
-    const onScroll = () => {
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200 && !loading && hasMore) {
-        fetchNotifications(page + 1);
-      }
-    };
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [page, hasMore, loading]);
 
   const fetchNotifications = async (pg) => {
     try {
@@ -62,6 +47,21 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchNotifications(1);
+  }, []);
+
+  const lastNotificationRef = useCallback((node) => {
+    if (loading || !hasMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        fetchNotifications(page + 1);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loading, hasMore, page]);
 
   const handleUnreadFilter = async () => {
     setFilter("unread");
@@ -83,8 +83,7 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
     try {
       const post = await postApi.getPostById(postId);
       const isLiked = post.likes?.includes(authUser._id);
-      const enriched = { ...post, isLiked };
-      setSinglePost(enriched);
+      setSinglePost({ ...post, isLiked });
       setShowSinglePostModal(true);
     } catch (err) {
       alert("Failed to load post");
@@ -112,18 +111,15 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
       case "share":
         openPostModal(notification.link?.match(/\/posts\/(.+)/)?.[1]);
         break;
-
       case "group_request":
       case "friend_request":
       case "friend_approved":
         navigate(`/profile/${notification.sender}`);
         break;
-
       case "approved_request":
       case "group_post":
         navigate(`/group/${notification.link?.match(/\/groups\/(.+)/)?.[1]}`);
         break;
-
       default:
         console.warn("Unhandled notification type:", notification.type);
     }
@@ -177,39 +173,45 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
           <div className="no-notifications">No notifications to show.</div>
         )}
 
-        {notifications.map((n) => (
-          <div
-            key={n._id}
-            className={`notification-item ${n.isRead ? "read" : "unread"}`}
-            onClick={() => handleNotificationClick(n)}
-          >
-            <div className="avatar-wrapper">
-              <img src={n.image} alt="sender" className="avatar" />
-              <div className="type-icon">{typeIcons[n.type]}</div>
+        {notifications.map((n, i) => {
+          const isLast = i === notifications.length - 1;
+          return (
+            <div
+              key={n._id}
+              ref={isLast ? lastNotificationRef : null}
+              className={`notification-item ${n.isRead ? "read" : "unread"}`}
+              onClick={() => handleNotificationClick(n)}
+            >
+              <div className="avatar-wrapper">
+                <img src={n.image} alt="sender" className="avatar" />
+                <div className="type-icon">{typeIcons[n.type]}</div>
+              </div>
+              <div className="notification-info">
+                <div className="name">{n.sender?.firstName} {n.sender?.lastName}</div>
+                <div className="message">{n.message}</div>
+                <div className="date">{new Date(n.createdAt).toLocaleDateString()}</div>
+              </div>
+              <FaTimes
+                className="delete-icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(n._id);
+                }}
+              />
             </div>
-            <div className="notification-info">
-              <div className="name">{n.sender?.firstName} {n.sender?.lastName}</div>
-              <div className="message">{n.message}</div>
-              <div className="date">{new Date(n.createdAt).toLocaleDateString()}</div>
-            </div>
-            <FaTimes
-              className="delete-icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(n._id);
-              }}
-            />
-          </div>
-        ))}
+          );
+        })}
 
         {showSinglePostModal && singlePost && (
           <div className="comment-modal-overlay" onClick={() => setShowSinglePostModal(false)}>
             <div className="comment-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>Post</h3>
-                <button className="close-btn" onClick={() => setShowSinglePostModal(false)}><FaTimes /></button>
+                <button className="close-btn" onClick={() => setShowSinglePostModal(false)}>
+                  <FaTimes />
+                </button>
               </div>
-              <div className="modal-content">
+              <div className="modal-content scrollable-post">
                 <PostCard
                   post={singlePost}
                   onPostDeleted={() => setShowSinglePostModal(false)}
@@ -219,6 +221,7 @@ export default function Notifications({ unreadNotifications, setUnreadNotificati
             </div>
           </div>
         )}
+
         {loading && <div className="loader">Loading more...</div>}
       </div>
     </div>

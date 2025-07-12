@@ -258,9 +258,10 @@
 }
 
 .friend-action-container {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
 }
 
 .friend-btn {
