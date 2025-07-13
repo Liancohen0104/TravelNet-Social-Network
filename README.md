@@ -11,7 +11,7 @@
 
 <a href="https://youtu.be/uvKJ1ioFOvo" target="_blank">
   <img 
-    src="frontend/public/Demo.png" 
+    src="Frontend/public/Demo.png" 
     alt="TravelNet App Demo" 
     width="100%"
   />
