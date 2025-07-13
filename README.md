@@ -1,4 +1,4 @@
-# 🧭 TravelNet - Social Network for Travelers
+# **🧭** TravelNet - Social Network for Travelers
 
 ## 📖 Overview
 
@@ -9,7 +9,13 @@
 
 ## 🎥 Demo Video
 
-> Coming soon...
+<a href="https://youtu.be/uvKJ1ioFOvo" target="_blank">
+  <img 
+    src="frontend/public/Demo.png" 
+    alt="TravelNet App Demo" 
+    width="100%"
+  />
+</a>
 
 ---
 
