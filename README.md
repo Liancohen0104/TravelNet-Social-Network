@@ -199,13 +199,17 @@ mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/travelnet_db?retr
 
 ### 3. Run the Project
 
+1. 🖥️ Start Backend
+
 ```bash
-# Start Backend
 cd Backend
 npm install
 npm start
+```
 
-# In a new terminal, start Frontend
+2. 🌐 In a new terminal, start Frontend
+
+```bash
 cd Frontend
 npm install
 npm start
