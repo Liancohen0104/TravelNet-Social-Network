@@ -58,31 +58,32 @@ travel-social-network/
 │   ├── src/
 │   │   ├── config/           # Configuration files (DB, cloudinary, etc.)
 │   │   ├── controllers/      # Route logic handlers
-│   │   ├── middlewares/      # Custom Express middlewares
-│   │   ├── models/           # Mongoose schema definitions
-│   │   ├── routes/           # API route declarations
-│   │   ├── services/         # Business logic and utilities
-│   │   ├── sockets/          # Socket.io handlers
-│   │   └── app.js            # Express app setup
-│   ├── server.js             # App entry point
-│   ├── package.json          # Backend metadata and dependencies
-│   └── .env                  # Environment variables (not committed)
+│   │   ├── middlewares/     # Custom Express middlewares
+│   │   ├── models/          # Mongoose schema definitions
+│   │   ├── routes/          # API route declarations
+│   │   ├── services/        # Business logic and utilities
+│   │   ├── sockets/         # Socket.io handlers
+│   │   └── app.js           # Express app setup
+│   ├── server.js            # App entry point
+│   ├── package.json         # Backend metadata and dependencies
+│   └── .env                 # Environment variables (not committed)
 │
 ├── Frontend/
-│   ├── public/               # Static assets
+│   ├── public/              # Static assets
 │   ├── src/
-│   │   ├── components/       # Reusable React components
-│   │   ├── contexts/         # React context providers
-│   │   ├── css/              # Global styles
-│   │   ├── layouts/          # Page layout wrappers
-│   │   ├── pages/            # Main pages (Profile, Home, etc.)
-│   │   ├── services/         # Axios/jQuery API functions
-│   │   ├── App.js            # Main App component
-│   │   ├── AppRouter.js      # Routing configuration
-│   │   └── index.js          # Entry point
-│   └── package.json          # Frontend metadata and dependencies
+│   │   ├── components/      # Reusable React components
+│   │   ├── contexts/        # React context providers
+│   │   ├── css/             # Global styles
+│   │   ├── layouts/         # Page layout wrappers
+│   │   ├── pages/           # Main pages (Profile, Home, etc.)
+│   │   ├── services/        # Axios/jQuery API functions
+│   │   ├── App.js           # Main App component
+│   │   ├── AppRouter.js     # Routing configuration
+│   │   └── index.js         # Entry point
+│   └── package.json         # Frontend metadata and dependencies
 │
-├── README.md                # Project documentation
+├── Makefile                # CLI shortcuts for starting the project
+├── README.md               # Project documentation
 ```
 
 ---
@@ -111,16 +112,16 @@ travel-social-network/
 
 ---
 
-## 🚀 Installation & Setup
+## 🛠️ Installation & Setup
 
-1. Clone the repository:
+### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
 cd travel-social-network
 ```
 
-2. Create a `.env` file in the project root with:
+### 2. Create a `.env` File in the Project Root with:
 
 ```env
 # === 🌐 Server ===
@@ -146,7 +147,7 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 ---
 
-### ℹ️ Environment Variable Setup Instructions
+### 3. ℹ️ Environment Variable Setup Instructions
 
 #### 🔐 JWT\_SECRET
 
@@ -191,7 +192,7 @@ mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/travelnet_db?retr
 
 ---
 
-3. Run the project:
+### 4. Run the Project
 
 ```bash
 # Start Backend
@@ -206,9 +207,5 @@ npm start
 ```
 
 This will start:
-
-✅ Backend  - \[http\://localhost:[your\_backend\_port](http://localhost:[your_backend_port)]
-✅ Frontend - [http://localhost:3000](http://localhost:3000)
-
 ✅ Backend  - [http://localhost:4000](http://localhost:4000)
 ✅ Frontend - [http://localhost:3000](http://localhost:3000)
