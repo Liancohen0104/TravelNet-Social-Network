@@ -6,11 +6,13 @@
 
 ---
 
+
 ## 🎥 Demo Video
 
 > Coming soon...
 
 ---
+
 
 ## ✨ Key Features
 
@@ -50,6 +52,7 @@
 
 ---
 
+
 ## 📂 Project Structure
 
 ```
@@ -88,6 +91,7 @@ travel-social-network/
 
 ---
 
+
 ## 🛠️ Technology Overview
 
 ### Backend
@@ -111,6 +115,7 @@ travel-social-network/
 * **D3.js** – Data visualization (graphs)
 
 ---
+
 
 ## 🛠️ Installation & Setup
 
@@ -147,7 +152,7 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 ---
 
-### 3. ℹ️ Environment Variable Setup Instructions
+### ℹ️ Environment Variable Setup Instructions
 
 #### 🔐 JWT\_SECRET
 
@@ -192,7 +197,7 @@ mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/travelnet_db?retr
 
 ---
 
-### 4. Run the Project
+### 3. Run the Project
 
 ```bash
 # Start Backend
@@ -207,5 +212,19 @@ npm start
 ```
 
 This will start:
-✅ Backend  - [http://localhost:4000](http://localhost:4000)
-✅ Frontend - [http://localhost:3000](http://localhost:3000)
+
+✅ Backend (FastAPI) - [http://localhost:4000](http://localhost:4000)
+
+✅ Frontend (React) - [http://localhost:3000](http://localhost:3000)
+
+---
+
+
+## 🙌 Conclusion
+
+TravelNet empowers travelers to share, connect, and explore through a modern social platform tailored for adventurers. Whether you're looking to join a travel group, post unforgettable memories, or chat with fellow explorers – TravelNet provides a seamless experience to enhance your travel journey.
+
+Feel free to contribute, report issues, or suggest new features to improve the platform for everyone. 🌍✈️
+
+
+---
