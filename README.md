@@ -222,7 +222,7 @@ npm start
 
 This will start:
 
-✅ Backend (FastAPI) - [http://localhost:4000](http://localhost:4000)
+✅ Backend (Express) - [http://localhost:4000](http://localhost:4000)
 
 ✅ Frontend (React) - [http://localhost:3000](http://localhost:3000)
 
