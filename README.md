@@ -91,7 +91,6 @@ travel-social-network/
 │   │   └── index.js         # Entry point
 │   └── package.json         # Frontend metadata and dependencies
 │
-├── Makefile                # CLI shortcuts for starting the project
 ├── README.md               # Project documentation
 ```
 
@@ -238,3 +237,7 @@ Feel free to contribute, report issues, or suggest new features to improve the p
 
 
 ---
+<div align="center">
+  <p><strong>Built by Lian Cohen ❤️</strong></p>
+  <p><a href="mailto:Liancohen0104@gmail.com">Liancohen0104@gmail.com</a></p>
+</div>
